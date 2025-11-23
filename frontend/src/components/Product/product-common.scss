@@ -1,0 +1,158 @@
+// 商品管理组件公共样式
+@import '../../assets/css/variables.scss';
+
+// 容器基础样式
+.product-module {
+  padding: var(--spacing-lg);
+  background-color: var(--bg-gray);
+  min-height: 100vh;
+}
+
+.product-content {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+// 头部操作栏
+.product-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-xl);
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+}
+
+.product-title {
+  font-size: var(--font-size-xl);
+  font-weight: bold;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+// 按钮组样式
+.action-buttons {
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+// 卡片样式
+.product-card {
+  background-color: var(--bg-white);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--box-shadow);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+  transition: all var(--transition-fast);
+
+  &:hover {
+    box-shadow: var(--box-shadow-hover);
+    transform: translateY(-2px);
+  }
+}
+
+// 响应式设计
+@media (max-width: 768px) {
+  .product-module {
+    padding: var(--spacing-md);
+  }
+
+  .product-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .action-buttons {
+    justify-content: center;
+  }
+
+  .product-card {
+    padding: var(--spacing-md);
+  }
+}
+
+@media (max-width: 480px) {
+  .product-module {
+    padding: var(--spacing-sm);
+  }
+
+  .product-title {
+    font-size: var(--font-size-lg);
+    text-align: center;
+  }
+}
+
+// 加载状态
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+// 空状态
+.empty-state {
+  text-align: center;
+  padding: var(--spacing-xxl);
+  color: var(--text-secondary);
+
+  .empty-icon {
+    font-size: 64px;
+    margin-bottom: var(--spacing-lg);
+    color: var(--text-placeholder);
+  }
+
+  .empty-text {
+    font-size: var(--font-size-md);
+  }
+}
+
+// 表格样式增强
+.product-table-enhanced {
+  ::v-deep(.el-table__header-wrapper) {
+    background-color: var(--bg-table-header);
+
+    th {
+      font-weight: bold;
+      color: var(--text-primary);
+    }
+  }
+
+  ::v-deep(.el-table__body-wrapper) {
+    tbody {
+      tr {
+        transition: background-color var(--transition-fast);
+
+        &:hover {
+          background-color: var(--bg-hover) !important;
+        }
+      }
+    }
+  }
+}
+
+// 表单样式增强
+.product-form-enhanced {
+  ::v-deep(.el-form-item__label) {
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  ::v-deep(.el-input__inner),
+  ::v-deep(.el-textarea__inner),
+  ::v-deep(.el-select__wrapper) {
+    border-color: var(--border-color);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+
+    &:focus {
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.1);
+    }
+  }
+}

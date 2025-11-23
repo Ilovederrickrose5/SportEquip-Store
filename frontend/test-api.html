@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API测试工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #response {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            background-color: #f5f5f5;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>用户资料更新API测试</h1>
+    
+    <div class="form-group">
+        <label for="userId">用户ID:</label>
+        <input type="text" id="userId" value="1" placeholder="输入用户ID">
+    </div>
+    
+    <div class="form-group">
+        <label for="username">用户名:</label>
+        <input type="text" id="username" value="admin" placeholder="输入用户名">
+    </div>
+    
+    <div class="form-group">
+        <label for="phone">手机号:</label>
+        <input type="text" id="phone" value="18718708914" placeholder="输入手机号">
+    </div>
+    
+    <div class="form-group">
+        <label for="address">地址:</label>
+        <input type="text" id="address" value="新柳大道99号" placeholder="输入地址">
+    </div>
+    
+    <div class="form-group">
+        <label for="token">Token (从localStorage获取):</label>
+        <textarea id="token" rows="3"></textarea>
+    </div>
+    
+    <button onclick="testUpdateProfile()">测试更新用户资料</button>
+    
+    <div id="response"></div>
+    
+    <script>
+        // 页面加载时尝试从localStorage获取token
+        window.onload = function() {
+            const token = localStorage.getItem('token');
+            if (token) {
+                document.getElementById('token').value = token;
+            }
+        };
+        
+        async function testUpdateProfile() {
+            const responseDiv = document.getElementById('response');
+            responseDiv.textContent = '正在发送请求...';
+            
+            try {
+                const userId = document.getElementById('userId').value;
+                const username = document.getElementById('username').value;
+                const phone = document.getElementById('phone').value;
+                const address = document.getElementById('address').value;
+                const token = document.getElementById('token').value;
+                
+                // 构建请求数据
+                const updateData = {
+                    username: username,
+                    phone: phone,
+                    address: address
+                };
+                
+                // 构建请求URL
+                const apiUrl = `http://localhost:8080/api/users/${userId}`;
+                
+                // 显示请求信息
+                responseDiv.textContent = `请求URL: ${apiUrl}\n`;
+                responseDiv.textContent += `请求方法: PUT\n`;
+                responseDiv.textContent += `请求数据: ${JSON.stringify(updateData, null, 2)}\n\n`;
+                responseDiv.textContent += `包含Token: ${!!token}\n\n`;
+                responseDiv.textContent += `正在发送请求...\n`;
+                
+                // 发送请求
+                const start = Date.now();
+                const response = await fetch(apiUrl, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': token ? `Bearer ${token}` : ''
+                    },
+                    body: JSON.stringify(updateData)
+                });
+                const end = Date.now();
+                
+                // 显示响应信息
+                responseDiv.textContent += `响应时间: ${end - start}ms\n`;
+                responseDiv.textContent += `响应状态: ${response.status} ${response.statusText}\n\n`;
+                
+                // 尝试解析响应体
+                try {
+                    const responseData = await response.json();
+                    responseDiv.textContent += `响应数据:\n${JSON.stringify(responseData, null, 2)}\n\n`;
+                } catch (jsonError) {
+                    responseDiv.textContent += `无法解析响应JSON: ${jsonError.message}\n\n`;
+                    const text = await response.text();
+                    responseDiv.textContent += `响应文本:\n${text}\n\n`;
+                }
+                
+                // 显示响应头信息
+                responseDiv.textContent += `响应头信息:\n`;
+                response.headers.forEach((value, name) => {
+                    responseDiv.textContent += `${name}: ${value}\n`;
+                });
+                
+            } catch (error) {
+                responseDiv.textContent += `请求失败: ${error.message}\n`;
+                responseDiv.textContent += `错误详情: ${JSON.stringify(error, null, 2)}\n`;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 购物车轮廓 -->
+  <path d="M35 60H50L60 100H165M165 100L165 130C165 141.046 156.046 150 145 150H55C43.9543 150 35 141.046 35 130V60M35 60C35 48.9543 43.9543 40 55 40H155C166.046 40 175 48.9543 175 60V100" stroke="#CCCCCC" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- 购物车把手 -->
+  <path d="M90 40C90 32.268 96.268 26 104 26H126C133.732 26 140 32.268 140 40" stroke="#CCCCCC" stroke-width="8" stroke-linecap="round"/>
+  
+  <!-- 虚线 -->
+  <path d="M50 170C70 170 75 180 85 180C95 180 105 170 125 170C145 170 150 180 160 180" stroke="#CCCCCC" stroke-width="4" stroke-linecap="round" stroke-dasharray="10 6"/>
+  
+  <!-- 表情 -->
+  <circle cx="100" cy="65" r="5" fill="#CCCCCC"/>
+  <path d="M85 75C85 75 90 85 100 85C110 85 115 75 115 75" stroke="#CCCCCC" stroke-width="3" stroke-linecap="round"/>
+</svg>

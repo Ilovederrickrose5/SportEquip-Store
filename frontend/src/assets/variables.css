@@ -1,0 +1,41 @@
+:root {
+  /* 天蓝色系主题颜色变量 */
+  --primary-color: #1e90ff; /* 舒适天蓝色 */
+  --primary-dark: #187bcd; /* 深蓝色 */
+  --primary-light: #63b8ff; /* 浅蓝色 */
+  --primary-lighter: #e6f2ff; /* 极浅蓝背景 */
+  --primary-hover: #46a3ff; /* 悬停色 */
+  --text-primary: #333333;
+  --text-light: #666666;
+  --background-secondary: #f0f7ff;
+  --danger-color: #ff4757;
+  --warning-color: #ffa502;
+  --info-color: #3742fa;
+  
+  /* 尺寸变量 */
+  --header-height: 70px;
+  --border-radius: 4px;
+  --border-radius-large: 8px;
+  --border-radius-round: 50px;
+  --box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  --transition-default: all 0.3s ease;
+  
+  /* 间距变量 */
+  --spacing-xs: 5px;
+  --spacing-sm: 10px;
+  --spacing-md: 15px;
+  --spacing-lg: 20px;
+  --spacing-xl: 30px;
+  --spacing-xxl: 40px;
+  
+  /* 字体大小变量 */
+  --font-size-sm: 12px;
+  --font-size-base: 14px;
+  --font-size-md: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 20px;
+  --font-size-xxl: 24px;
+  
+  /* 字体家族 */
+  --font-family: 'Arial', 'Microsoft YaHei', sans-serif;
+}
