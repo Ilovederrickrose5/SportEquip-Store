@@ -65,7 +65,7 @@ FLUSH PRIVILEGES;
 
 ### 第3步：初始化数据库表结构
 
-由于项目使用JPA，您有两种选择来创建数据库表：
+由于项目使用JPA，您有三种选择来创建数据库表：
 
 #### 选项A：使用JPA自动建表（推荐开发环境）
 
@@ -94,7 +94,26 @@ FLUSH PRIVILEGES;
 - SubCategory（二级分类表）
 - ThirdCategory（三级分类表）
 
-### 第4步：添加初始数据
+#### 选项C：导入SQL文件（推荐新手用户）
+
+项目仓库中已提供完整的数据库初始化SQL文件，您可以直接导入：
+
+1. 确保您已下载项目仓库，其中包含`sport_equipment.sql`文件
+2. 使用MySQL客户端或命令行导入SQL文件：
+
+```bash
+# Windows命令行
+mysql -u root -p sport_equipment < sport_equipment.sql
+
+# Linux命令行
+mysql -u root -p sport_equipment < sport_equipment.sql
+```
+
+此SQL文件包含所有表结构、外键关系以及初始数据，包括管理员账号和商品分类数据。
+
+### 第4步：添加初始数据（如果不使用SQL文件导入）
+
+> **注意**：如果您使用了选项C（SQL文件导入），这一步可以跳过，因为SQL文件中已经包含了所有必要的初始数据。
 
 为了让系统正常运行，您需要添加一些基本的初始数据：
 

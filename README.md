@@ -83,8 +83,6 @@ backend/
 
 ## 数据库初始化
 
-由于项目代码中不包含数据库文件，您需要手动初始化数据库：
-
 ### 方法一：使用JPA自动建表（推荐用于开发环境）
 
 1. 确保MySQL服务已启动
@@ -106,6 +104,10 @@ backend/
 ### 方法二：手动创建表结构
 
 按照项目实体类定义创建对应的数据库表。实体类包括：User、Product、Order、OrderItem、Cart、CartItem、Address、Review、Favorite、MainCategory、SubCategory、ThirdCategory等。
+
+### 方法三：使用SQL文件导入（推荐新手用户）
+
+项目根目录下提供了`sport_equipment.sql`文件，包含完整的数据库表结构和初始数据。详细的导入步骤请参考项目中的`DEPLOY.md`文件。
 
 ## 如何运行
 
