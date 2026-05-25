@@ -59,6 +59,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional(readOnly = true)
+    @SuppressWarnings("null")
     public MainCategory getMainCategoryById(Long id) {
         return mainCategoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Main category not found with id: " + id));
@@ -66,6 +67,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional(readOnly = true)
+    @SuppressWarnings("null")
     public SubCategory getSubCategoryById(Long id) {
         return subCategoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Sub category not found with id: " + id));
@@ -73,6 +75,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional(readOnly = true)
+    @SuppressWarnings("null")
     public ThirdCategory getThirdCategoryById(Long id) {
         return thirdCategoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Third category not found with id: " + id));
@@ -149,6 +152,7 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     // 映射方法
+    @SuppressWarnings("null")
     private CategoryDTO mapToCategoryDTO(MainCategory mainCategory) {
         CategoryDTO categoryDTO = new CategoryDTO();
         categoryDTO.setId(mainCategory.getId());
@@ -165,6 +169,7 @@ public class CategoryServiceImpl implements CategoryService {
         return categoryDTO;
     }
 
+    @SuppressWarnings("null")
     private SubCategoryDTO mapToSubCategoryDTO(SubCategory subCategory) {
         SubCategoryDTO subCategoryDTO = new SubCategoryDTO();
         subCategoryDTO.setId(subCategory.getId());
@@ -181,6 +186,7 @@ public class CategoryServiceImpl implements CategoryService {
         return subCategoryDTO;
     }
 
+    @SuppressWarnings("null")
     private ThirdCategoryDTO mapToThirdCategoryDTO(ThirdCategory thirdCategory) {
         ThirdCategoryDTO thirdCategoryDTO = new ThirdCategoryDTO();
         thirdCategoryDTO.setId(thirdCategory.getId());

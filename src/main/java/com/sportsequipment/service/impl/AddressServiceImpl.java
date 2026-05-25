@@ -70,6 +70,7 @@ public class AddressServiceImpl implements AddressService {
     }
 
     @Override
+    @SuppressWarnings("null")
     public Address getAddressById(Long id) {
         if (id == null) {
             throw new IllegalArgumentException("Address ID cannot be null");

@@ -97,6 +97,7 @@ public class CartServiceImpl implements CartService {
         }
 
         Cart cart = getOrCreateCart();
+        @SuppressWarnings("null")
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + productId));
 
@@ -143,6 +144,7 @@ public class CartServiceImpl implements CartService {
         }
 
         Cart cart = getOrCreateCart();
+        @SuppressWarnings("null")
         CartItem cartItem = cartItemRepository.findById(cartItemId)
                 .orElseThrow(() -> new ResourceNotFoundException("Cart item not found with id: " + cartItemId));
 
@@ -171,6 +173,7 @@ public class CartServiceImpl implements CartService {
     @Transactional
     public CartDTO removeFromCart(Long cartItemId) {
         Cart cart = getOrCreateCart();
+        @SuppressWarnings("null")
         CartItem cartItem = cartItemRepository.findById(cartItemId)
                 .orElseThrow(() -> new ResourceNotFoundException("Cart item not found with id: " + cartItemId));
 

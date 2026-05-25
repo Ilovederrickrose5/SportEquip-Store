@@ -36,6 +36,7 @@ public class ProductServiceImpl implements ProductService {
             throw new IllegalArgumentException("Product ID cannot be null");
         }
 
+        @SuppressWarnings("null")
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
         return mapToProductDTO(product);
@@ -73,6 +74,7 @@ public class ProductServiceImpl implements ProductService {
             throw new IllegalArgumentException("Product cannot be null");
         }
 
+        @SuppressWarnings("null")
         Product existingProduct = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
 
@@ -94,6 +96,7 @@ public class ProductServiceImpl implements ProductService {
             throw new IllegalArgumentException("Product ID cannot be null");
         }
 
+        @SuppressWarnings("null")
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
         productRepository.delete(product);
