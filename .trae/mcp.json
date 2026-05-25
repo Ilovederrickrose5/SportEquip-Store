@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "mysql": {
+    "mysql-sport": {
       "command": "npx",
       "args": [
         "mysql-mcp-server"
@@ -12,6 +12,12 @@
         "MYSQL_PASSWORD": "123456",
         "MYSQL_DATABASE": "sport_equipment"
       }
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-filesystem"
+      ]
     }
   }
 }
