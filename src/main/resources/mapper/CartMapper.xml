@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sportsequipment.mapper.CartMapper">
+
+    <select id="findById" resultType="Cart">
+        SELECT * FROM cart WHERE id = #{id}
+    </select>
+
+    <select id="findAll" resultType="Cart">
+        SELECT * FROM cart
+    </select>
+
+    <insert id="insert" parameterType="Cart">
+        INSERT INTO cart (user_id, created_at, updated_at)
+        VALUES (#{userId}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="update" parameterType="Cart">
+        UPDATE cart SET
+        user_id = #{userId},
+        updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="Long">
+        DELETE FROM cart WHERE id = #{id}
+    </delete>
+
+    <select id="findByUserId" resultType="Cart">
+        SELECT * FROM cart WHERE user_id = #{userId}
+    </select>
+
+</mapper>

@@ -1,71 +1,51 @@
 package com.sportsequipment.entity;
 
-import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
-@Entity
-@Table(name = "`order`")
 public class Order {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    private Long userId;
+
     private User user;
 
-    @Column(name = "total_amount", nullable = false)
     private BigDecimal totalAmount;
 
-    @Column(nullable = false)
-    private String status; // PENDING, PAID, SHIPPED, DELIVERED, CANCELLED
+    private String status;
 
-    @Column(name = "shipping_address", nullable = false)
     private String shippingAddress;
 
     private String phone;
-    
-    // 支付方式字段 - 映射到数据库
-    @Column(name = "payment_method")
+
     private String paymentMethod;
-    
-    // 收货人姓名字段 - 映射到数据库
-    @Column(name = "recipient_name")
+
     private String recipientName;
-    
-    // 订单备注字段 - 映射到数据库
-    @Column(name = "remark")
+
     private String remark;
 
-    @Column(name = "created_at")
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    private List<OrderItem> orderItems;
+    private List<OrderItem> orderItems = new ArrayList<>();
 
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
-
-    // Getters and setters
     public Long getId() {
         return id;
     }
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 
     public User getUser() {
@@ -107,27 +87,27 @@ public class Order {
     public void setPhone(String phone) {
         this.phone = phone;
     }
-    
+
     public String getPaymentMethod() {
         return paymentMethod;
     }
-    
+
     public void setPaymentMethod(String paymentMethod) {
         this.paymentMethod = paymentMethod;
     }
-    
+
     public String getRecipientName() {
         return recipientName;
     }
-    
+
     public void setRecipientName(String recipientName) {
         this.recipientName = recipientName;
     }
-    
+
     public String getRemark() {
         return remark;
     }
-    
+
     public void setRemark(String remark) {
         this.remark = remark;
     }
@@ -156,4 +136,3 @@ public class Order {
         this.orderItems = orderItems;
     }
 }
-    

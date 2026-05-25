@@ -1,7 +1,7 @@
 package com.sportsequipment.security;
 
 import com.sportsequipment.entity.User;
-import com.sportsequipment.repository.UserRepository;
+import com.sportsequipment.mapper.UserMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,7 +16,7 @@ public class UserDetailsServiceImpl implements UserDetailsManager {
     private static final Logger logger = LoggerFactory.getLogger(UserDetailsServiceImpl.class);
     
     @Autowired
-    UserRepository userRepository;
+    UserMapper userMapper;
 
     @Override
     @Transactional
@@ -24,11 +24,11 @@ public class UserDetailsServiceImpl implements UserDetailsManager {
         logger.info("尝试加载用户: {}", username);
         
         try {
-            User user = userRepository.findByUsername(username)
-                    .orElseThrow(() -> {
-                        logger.warn("未找到用户: {}", username);
-                        return new UsernameNotFoundException("User Not Found with username: " + username);
-                    });
+            User user = userMapper.findByUsername(username);
+            if (user == null) {
+                logger.warn("未找到用户: {}", username);
+                throw new UsernameNotFoundException("User Not Found with username: " + username);
+            }
 
             logger.info("成功加载用户: {}, 角色: {}", username, user.getRole());
             return UserDetailsImpl.build(user);
@@ -63,7 +63,6 @@ public class UserDetailsServiceImpl implements UserDetailsManager {
 
     @Override
     public boolean userExists(String username) {
-        return userRepository.findByUsername(username).isPresent();
+        return userMapper.findByUsername(username) != null;
     }
 }
-    

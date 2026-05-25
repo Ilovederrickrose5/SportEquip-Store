@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sportsequipment.mapper.OrderMapper">
+
+    <select id="findById" resultType="Order">
+        SELECT * FROM `order` WHERE id = #{id}
+    </select>
+
+    <select id="findAll" resultType="Order">
+        SELECT * FROM `order`
+    </select>
+
+    <insert id="insert" parameterType="Order">
+        INSERT INTO `order` (user_id, total_amount, status, shipping_address, created_at, updated_at)
+        VALUES (#{userId}, #{totalAmount}, #{status}, #{shippingAddress}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="update" parameterType="Order">
+        UPDATE `order` SET
+        user_id = #{userId},
+        total_amount = #{totalAmount},
+        status = #{status},
+        shipping_address = #{shippingAddress},
+        updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="Long">
+        DELETE FROM `order` WHERE id = #{id}
+    </delete>
+
+    <select id="findByUserId" resultType="Order">
+        SELECT * FROM `order` WHERE user_id = #{userId}
+    </select>
+
+</mapper>

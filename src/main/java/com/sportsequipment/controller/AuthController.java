@@ -5,7 +5,7 @@ import com.sportsequipment.dto.LoginRequest;
 import com.sportsequipment.dto.MessageResponse;
 import com.sportsequipment.dto.RegisterRequest;
 import com.sportsequipment.entity.User;
-import com.sportsequipment.repository.UserRepository;
+import com.sportsequipment.mapper.UserMapper;
 import com.sportsequipment.security.JwtUtils;
 import com.sportsequipment.security.UserDetailsImpl;
 import com.sportsequipment.util.PasswordValidator;
@@ -23,6 +23,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
+import java.time.LocalDateTime;
 
 /**
  * 认证控制器，处理用户登录、注册等认证相关功能
@@ -35,16 +36,16 @@ public class AuthController {
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
     
     private final AuthenticationManager authenticationManager;
-    private final UserRepository userRepository;
+    private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
     
     public AuthController(AuthenticationManager authenticationManager, 
-                         UserRepository userRepository, 
+                         UserMapper userMapper, 
                          PasswordEncoder passwordEncoder,
                          JwtUtils jwtUtils) {
         this.authenticationManager = authenticationManager;
-        this.userRepository = userRepository;
+        this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtils = jwtUtils;
     }
@@ -56,18 +57,18 @@ public class AuthController {
     @PostMapping("/reset-password")
     public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest request) {
         logger.info("收到密码重置请求，用户名: {}", request.getUsername());
-        return userRepository.findByUsername(request.getUsername())
-                .map(user -> {
-                    logger.info("找到用户: {}，执行密码重置", request.getUsername());
-                    user.setPassword(passwordEncoder.encode(request.getNewPassword()));
-                    userRepository.save(user);
-                    logger.info("用户: {} 密码重置成功", request.getUsername());
-                    return ResponseEntity.ok(new MessageResponse("密码重置成功"));
-                })
-                .orElseGet(() -> {
-                    logger.warn("密码重置失败：用户不存在，用户名: {}", request.getUsername());
-                    return ResponseEntity.badRequest().body(new MessageResponse("用户不存在"));
-                });
+        User user = userMapper.findByUsername(request.getUsername());
+        if (user != null) {
+            logger.info("找到用户: {}，执行密码重置", request.getUsername());
+            user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+            user.setUpdatedAt(LocalDateTime.now());
+            userMapper.update(user);
+            logger.info("用户: {} 密码重置成功", request.getUsername());
+            return ResponseEntity.ok(new MessageResponse("密码重置成功"));
+        } else {
+            logger.warn("密码重置失败：用户不存在，用户名: {}", request.getUsername());
+            return ResponseEntity.badRequest().body(new MessageResponse("用户不存在"));
+        }
     }
     
     /**
@@ -93,8 +94,7 @@ public class AuthController {
 
             UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
             String role = userDetails.getRole();
-            // 获取用户角色
-            
+
             logger.info("用户: {} 登录成功，角色: {}", loginRequest.getUsername(), role);
 
             return ResponseEntity.ok(new JwtResponse(jwt,
@@ -136,7 +136,7 @@ public class AuthController {
     private ResponseEntity<?> registerUser(RegisterRequest signUpRequest, String role, String successMessage) {
         try {
             // 检查用户名是否已存在
-            if (userRepository.existsByUsername(signUpRequest.getUsername())) {
+            if (userMapper.existsByUsername(signUpRequest.getUsername()) > 0) {
                 logger.warn("注册失败: 用户名 {} 已被使用", signUpRequest.getUsername());
                 return ResponseEntity
                         .badRequest()
@@ -144,7 +144,7 @@ public class AuthController {
             }
 
             // 检查邮箱是否已被使用
-            if (userRepository.existsByEmail(signUpRequest.getEmail())) {
+            if (userMapper.existsByEmail(signUpRequest.getEmail()) > 0) {
                 logger.warn("注册失败: 邮箱 {} 已被使用", signUpRequest.getEmail());
                 return ResponseEntity
                         .badRequest()
@@ -165,9 +165,11 @@ public class AuthController {
             user.setRole(role);
             user.setPhone(signUpRequest.getPhone());
             user.setAddress(signUpRequest.getAddress());
+            user.setCreatedAt(LocalDateTime.now());
+            user.setUpdatedAt(LocalDateTime.now());
 
-            User savedUser = userRepository.save(user);
-            logger.info("用户注册成功: ID={}, 用户名={}, 角色={}", savedUser.getId(), savedUser.getUsername(), role);
+            userMapper.insert(user);
+            logger.info("用户注册成功: ID={}, 用户名={}, 角色={}", user.getId(), user.getUsername(), role);
 
             return ResponseEntity.ok(new MessageResponse(successMessage));
         } catch (Exception e) {
@@ -178,4 +180,3 @@ public class AuthController {
         }
     }
 }
-    

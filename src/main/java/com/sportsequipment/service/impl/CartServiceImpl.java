@@ -7,10 +7,10 @@ import com.sportsequipment.entity.CartItem;
 import com.sportsequipment.entity.Product;
 import com.sportsequipment.entity.User;
 import com.sportsequipment.exception.ResourceNotFoundException;
-import com.sportsequipment.repository.CartRepository;
-import com.sportsequipment.repository.CartItemRepository;
-import com.sportsequipment.repository.ProductRepository;
-import com.sportsequipment.repository.UserRepository;
+import com.sportsequipment.mapper.CartMapper;
+import com.sportsequipment.mapper.CartItemMapper;
+import com.sportsequipment.mapper.ProductMapper;
+import com.sportsequipment.mapper.UserMapper;
 import com.sportsequipment.security.UserDetailsImpl;
 import com.sportsequipment.service.CartService;
 
@@ -30,16 +30,16 @@ import java.util.stream.Collectors;
 public class CartServiceImpl implements CartService {
 
     @Autowired
-    private CartRepository cartRepository;
+    private CartMapper cartMapper;
 
     @Autowired
-    private CartItemRepository cartItemRepository;
+    private CartItemMapper cartItemMapper;
 
     @Autowired
-    private UserRepository userRepository;
+    private UserMapper userMapper;
 
     @Autowired
-    private ProductRepository productRepository;
+    private ProductMapper productMapper;
 
     /**
      * 获取当前用户
@@ -54,8 +54,11 @@ public class CartServiceImpl implements CartService {
             throw new IllegalArgumentException("User ID cannot be null");
         }
 
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+        User user = userMapper.findById(userId);
+        if (user == null) {
+            throw new ResourceNotFoundException("User not found with id: " + userId);
+        }
+        return user;
     }
 
     /**
@@ -63,20 +66,15 @@ public class CartServiceImpl implements CartService {
      */
     private Cart getOrCreateCart() {
         User user = getCurrentUser();
-        // 先使用简单查询检查购物车是否存在
-        Cart cart = cartRepository.findByUserId(user.getId());
+        // 检查购物车是否存在
+        Cart cart = cartMapper.findByUserId(user.getId());
 
         if (cart == null) {
             cart = new Cart();
             cart.setUser(user);
-            cart = cartRepository.save(cart);
-        } else {
-            // 如果购物车存在，尝试加载关联数据
-            // 如果findByUserIdWithItemsAndProducts返回null，保留原始cart对象
-            Cart loadedCart = cartRepository.findByUserIdWithItemsAndProducts(user.getId());
-            if (loadedCart != null) {
-                cart = loadedCart;
-            }
+            cart.setCreatedAt(java.time.LocalDateTime.now());
+            cart.setUpdatedAt(java.time.LocalDateTime.now());
+            cartMapper.insert(cart);
         }
 
         return cart;
@@ -97,9 +95,10 @@ public class CartServiceImpl implements CartService {
         }
 
         Cart cart = getOrCreateCart();
-        @SuppressWarnings("null")
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + productId));
+        Product product = productMapper.findById(productId);
+        if (product == null) {
+            throw new ResourceNotFoundException("Product not found with id: " + productId);
+        }
 
         // 检查库存
         if (product.getStock() < quantity) {
@@ -111,7 +110,7 @@ public class CartServiceImpl implements CartService {
         if (cartId == null) {
             throw new IllegalStateException("Cart ID cannot be null");
         }
-        CartItem existingCartItem = cartItemRepository.findByCartIdAndProductId(cartId, productId);
+        CartItem existingCartItem = cartItemMapper.findByCartIdAndProductId(cartId, productId);
 
         if (existingCartItem != null) {
             // 更新已有商品的数量
@@ -123,16 +122,22 @@ public class CartServiceImpl implements CartService {
             }
 
             existingCartItem.setQuantity(newQuantity);
+            existingCartItem.setUpdatedAt(java.time.LocalDateTime.now());
+            cartItemMapper.update(existingCartItem);
         } else {
             // 添加新商品到购物车
             CartItem cartItem = new CartItem();
+            cartItem.setCart(cart);
             cartItem.setProduct(product);
             cartItem.setQuantity(quantity);
             cartItem.setPrice(product.getPrice());
-            cart.addCartItem(cartItem);
+            cartItem.setCreatedAt(java.time.LocalDateTime.now());
+            cartItem.setUpdatedAt(java.time.LocalDateTime.now());
+            cartItemMapper.insert(cartItem);
         }
 
-        cart = cartRepository.save(cart);
+        cart.setUpdatedAt(java.time.LocalDateTime.now());
+        cartMapper.update(cart);
         return mapToCartDTO(cart);
     }
 
@@ -144,9 +149,10 @@ public class CartServiceImpl implements CartService {
         }
 
         Cart cart = getOrCreateCart();
-        @SuppressWarnings("null")
-        CartItem cartItem = cartItemRepository.findById(cartItemId)
-                .orElseThrow(() -> new ResourceNotFoundException("Cart item not found with id: " + cartItemId));
+        CartItem cartItem = cartItemMapper.findById(cartItemId);
+        if (cartItem == null) {
+            throw new ResourceNotFoundException("Cart item not found with id: " + cartItemId);
+        }
 
         // 检查购物车项是否属于当前用户的购物车，确保ID不为null
         Long cartItemCartId = cartItem.getCart().getId();
@@ -162,10 +168,9 @@ public class CartServiceImpl implements CartService {
         }
 
         cartItem.setQuantity(quantity);
-        cartItemRepository.save(cartItem);
+        cartItem.setUpdatedAt(java.time.LocalDateTime.now());
+        cartItemMapper.update(cartItem);
 
-        // 重新加载购物车以获取最新数据
-        cart = cartRepository.findByUserIdWithItemsAndProducts(cart.getUser().getId());
         return mapToCartDTO(cart);
     }
 
@@ -173,9 +178,10 @@ public class CartServiceImpl implements CartService {
     @Transactional
     public CartDTO removeFromCart(Long cartItemId) {
         Cart cart = getOrCreateCart();
-        @SuppressWarnings("null")
-        CartItem cartItem = cartItemRepository.findById(cartItemId)
-                .orElseThrow(() -> new ResourceNotFoundException("Cart item not found with id: " + cartItemId));
+        CartItem cartItem = cartItemMapper.findById(cartItemId);
+        if (cartItem == null) {
+            throw new ResourceNotFoundException("Cart item not found with id: " + cartItemId);
+        }
 
         // 检查购物车项是否属于当前用户的购物车，确保ID不为null
         Long cartItemCartId = cartItem.getCart().getId();
@@ -184,24 +190,17 @@ public class CartServiceImpl implements CartService {
             throw new SecurityException("Access denied");
         }
 
-        cart.removeCartItem(cartItem);
-        cartItemRepository.delete(cartItem);
-
-        // 重新加载购物车以获取最新数据，添加空值检查
-        Cart updatedCart = cartRepository.findByUserIdWithItemsAndProducts(cart.getUser().getId());
-        if (updatedCart == null) {
-            updatedCart = cart; // 如果加载失败，使用原始cart对象
-        }
-        return mapToCartDTO(updatedCart);
+        cartItemMapper.deleteById(cartItemId);
+        return mapToCartDTO(cart);
     }
 
     @Override
     @Transactional
     public void clearCart() {
         Cart cart = getOrCreateCart();
-        cartItemRepository.deleteByCartId(cart.getId());
-        cart.getCartItems().clear();
-        cartRepository.save(cart);
+        cartItemMapper.deleteByCartId(cart.getId());
+        cart.setUpdatedAt(java.time.LocalDateTime.now());
+        cartMapper.update(cart);
     }
 
     @Override

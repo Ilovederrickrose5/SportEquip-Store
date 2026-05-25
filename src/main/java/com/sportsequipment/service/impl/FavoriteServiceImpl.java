@@ -9,8 +9,8 @@ import com.sportsequipment.entity.Favorite;
 import com.sportsequipment.entity.Product;
 import com.sportsequipment.entity.User;
 import com.sportsequipment.exception.ResourceNotFoundException;
-import com.sportsequipment.repository.FavoriteRepository;
-import com.sportsequipment.repository.ProductRepository;
+import com.sportsequipment.mapper.FavoriteMapper;
+import com.sportsequipment.mapper.ProductMapper;
 import com.sportsequipment.security.UserDetailsImpl;
 import com.sportsequipment.service.FavoriteService;
 
@@ -24,10 +24,10 @@ import java.util.stream.Collectors;
 public class FavoriteServiceImpl implements FavoriteService {
 
     @Autowired
-    private FavoriteRepository favoriteRepository;
+    private FavoriteMapper favoriteMapper;
 
     @Autowired
-    private ProductRepository productRepository;
+    private ProductMapper productMapper;
 
     @Override
     @Transactional
@@ -36,10 +36,12 @@ public class FavoriteServiceImpl implements FavoriteService {
         if (productId == null) {
             throw new IllegalArgumentException("Product ID cannot be null");
         }
-        
+
         // 验证产品是否存在
-        productRepository.findById(productId)
-                .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + productId));
+        Product product = productMapper.findById(productId);
+        if (product == null) {
+            throw new ResourceNotFoundException("Product not found with id: " + productId);
+        }
 
         // 获取当前用户信息
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -47,21 +49,19 @@ public class FavoriteServiceImpl implements FavoriteService {
         Long userId = userDetails.getId();
 
         // 检查是否已收藏
-        if (favoriteRepository.existsByUserIdAndProductId(userId, productId)) {
+        if (favoriteMapper.existsByUserIdAndProductId(userId, productId) > 0) {
             throw new IllegalStateException("Product is already in favorites");
         }
 
-        // 获取产品对象
-        Product favoriteProduct = productRepository.findById(productId)
-                .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + productId));
-                
         // 创建User对象引用（不需要完全加载用户对象）
         User user = new User();
         user.setId(userId);
 
         // 创建收藏记录
-        Favorite favorite = new Favorite(user, favoriteProduct);
-        return favoriteRepository.save(favorite);
+        Favorite favorite = new Favorite(user, product);
+        favorite.setCreatedAt(java.time.LocalDateTime.now());
+        favoriteMapper.insert(favorite);
+        return favorite;
     }
 
     @Override
@@ -73,12 +73,12 @@ public class FavoriteServiceImpl implements FavoriteService {
         Long userId = userDetails.getId();
 
         // 检查是否存在收藏记录
-        if (!favoriteRepository.existsByUserIdAndProductId(userId, productId)) {
+        if (favoriteMapper.existsByUserIdAndProductId(userId, productId) == 0) {
             throw new ResourceNotFoundException("Favorite not found for product id: " + productId);
         }
 
         // 删除收藏记录
-        favoriteRepository.deleteByUserIdAndProductId(userId, productId);
+        favoriteMapper.deleteByUserIdAndProductId(userId, productId);
     }
 
     @Override
@@ -90,7 +90,7 @@ public class FavoriteServiceImpl implements FavoriteService {
         Long userId = userDetails.getId();
 
         // 获取用户的所有收藏记录
-        List<Favorite> favorites = favoriteRepository.findByUserId(userId);
+        List<Favorite> favorites = favoriteMapper.findByUserId(userId);
 
         // 获取收藏的产品信息并转换为DTO
         return favorites.stream()
@@ -113,7 +113,7 @@ public class FavoriteServiceImpl implements FavoriteService {
         Long userId = userDetails.getId();
 
         // 检查产品是否在收藏列表中
-        return favoriteRepository.existsByUserIdAndProductId(userId, productId);
+        return favoriteMapper.existsByUserIdAndProductId(userId, productId) > 0;
     }
 
     // 转换实体到DTO

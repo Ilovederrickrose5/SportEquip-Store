@@ -1,31 +1,19 @@
 package com.sportsequipment.entity;
 
-import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "user",
-        uniqueConstraints = {
-                @UniqueConstraint(columnNames = "username"),
-                @UniqueConstraint(columnNames = "email")
-        })
 public class User {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
     @NotBlank(message = "Username is required")
     @Size(min = 3, max = 20, message = "Username must be between 3 and 20 characters")
     private String username;
 
-    @Column(nullable = false)
     @NotBlank(message = "Password is required")
     @Size(min = 6, message = "Password must be at least 6 characters")
     private String password;
 
-    @Column(nullable = false)
     @NotBlank(message = "Email is required")
     @Email(message = "Invalid email format")
     private String email;
@@ -39,14 +27,11 @@ public class User {
     @Size(max = 255, message = "Avatar URL cannot exceed 255 characters")
     private String avatar;
 
-    @Column(nullable = false)
     @NotBlank(message = "Role is required")
     private String role;
 
-    @Column(name = "created_at")
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
     public User() {
@@ -58,18 +43,6 @@ public class User {
         this.password = password;
     }
 
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
-
-    // Getters and setters
     public Long getId() {
         return id;
     }
@@ -150,4 +123,3 @@ public class User {
         this.updatedAt = updatedAt;
     }
 }
-    

@@ -1,38 +1,35 @@
 package com.sportsequipment.entity;
 
-import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 /**
  * 购物车项实体类
  */
-@Entity
-@Table(name = "cart_item")
 @Getter
 @Setter
 public class CartItem {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "cart_id", nullable = false)
+    private Long cartId;
+
     private Cart cart;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "product_id", nullable = false)
+    private Long productId;
+
     private Product product;
 
-    @Column(nullable = false)
     private Integer quantity;
 
-    @Column(nullable = false)
     private BigDecimal price;
 
-    // 当产品变更时更新价格
+    private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
+
     public void setProduct(Product product) {
         this.product = product;
         if (product != null) {
@@ -40,7 +37,6 @@ public class CartItem {
         }
     }
 
-    // 计算商品总价
     public BigDecimal getItemTotal() {
         return price.multiply(BigDecimal.valueOf(quantity));
     }

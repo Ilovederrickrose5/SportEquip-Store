@@ -6,7 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.sportsequipment.entity.Address;
 import com.sportsequipment.exception.ResourceNotFoundException;
-import com.sportsequipment.repository.AddressRepository;
+import com.sportsequipment.mapper.AddressMapper;
 import com.sportsequipment.service.AddressService;
 
 import java.time.LocalDateTime;
@@ -17,22 +17,25 @@ import java.util.Optional;
 public class AddressServiceImpl implements AddressService {
 
     @Autowired
-    private AddressRepository addressRepository;
+    private AddressMapper addressMapper;
 
     @Override
     public Address createAddress(Address address) {
         // 如果这是用户的第一个地址，自动设为默认地址
         if (address.getUser() != null) {
-            List<Address> userAddresses = addressRepository.findByUserId(address.getUser().getId());
+            List<Address> userAddresses = addressMapper.findByUserId(address.getUser().getId());
             if (userAddresses.isEmpty()) {
                 address.setDefault(true);
             }
         }
         // 如果用户设置了新地址为默认，先取消其他地址的默认状态
-        else if (address.isDefault() && address.getUser() != null) {
+        if (address.isDefault() && address.getUser() != null) {
             cancelDefaultAddresses(address.getUser().getId());
         }
-        return addressRepository.save(address);
+        address.setCreatedAt(LocalDateTime.now());
+        address.setUpdatedAt(LocalDateTime.now());
+        addressMapper.insert(address);
+        return address;
     }
 
     @Override
@@ -57,7 +60,8 @@ public class AddressServiceImpl implements AddressService {
         }
         // 如果取消默认地址，不做任何处理
 
-        return addressRepository.save(existingAddress);
+        addressMapper.update(existingAddress);
+        return existingAddress;
     }
 
     @Override
@@ -65,28 +69,31 @@ public class AddressServiceImpl implements AddressService {
         if (id == null) {
             throw new IllegalArgumentException("Address ID cannot be null");
         }
-        Address address = getAddressById(id);
-        addressRepository.delete(address);
+        getAddressById(id);
+        addressMapper.deleteById(id);
     }
 
     @Override
-    @SuppressWarnings("null")
     public Address getAddressById(Long id) {
         if (id == null) {
             throw new IllegalArgumentException("Address ID cannot be null");
         }
-        return addressRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Address not found with id: " + id));
+        Address address = addressMapper.findById(id);
+        if (address == null) {
+            throw new ResourceNotFoundException("Address not found with id: " + id);
+        }
+        return address;
     }
 
     @Override
     public List<Address> getAddressesByUserId(Long userId) {
-        return addressRepository.findByUserId(userId);
+        return addressMapper.findByUserId(userId);
     }
 
     @Override
     public Optional<Address> getDefaultAddressByUserId(Long userId) {
-        return addressRepository.findByUserIdAndIsDefaultTrue(userId);
+        Address address = addressMapper.findByUserIdAndIsDefaultTrue(userId);
+        return Optional.ofNullable(address);
     }
 
     @Override
@@ -101,16 +108,16 @@ public class AddressServiceImpl implements AddressService {
         }
         address.setDefault(true);
         address.setUpdatedAt(LocalDateTime.now());
-        addressRepository.save(address);
+        addressMapper.update(address);
     }
 
     private void cancelDefaultAddresses(Long userId) {
-        List<Address> addresses = addressRepository.findByUserId(userId);
+        List<Address> addresses = addressMapper.findByUserId(userId);
         for (Address address : addresses) {
             if (address.isDefault()) {
                 address.setDefault(false);
                 address.setUpdatedAt(LocalDateTime.now());
-                addressRepository.save(address);
+                addressMapper.update(address);
             }
         }
     }

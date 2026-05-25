@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sportsequipment.mapper.ThirdCategoryMapper">
+
+    <select id="findById" resultType="ThirdCategory">
+        SELECT * FROM third_category WHERE id = #{id}
+    </select>
+
+    <select id="findAll" resultType="ThirdCategory">
+        SELECT * FROM third_category
+    </select>
+
+    <insert id="insert" parameterType="ThirdCategory">
+        INSERT INTO third_category (sub_category_id, name, description, created_at, updated_at)
+        VALUES (#{subCategoryId}, #{name}, #{description}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="update" parameterType="ThirdCategory">
+        UPDATE third_category SET
+        sub_category_id = #{subCategoryId},
+        name = #{name},
+        description = #{description},
+        updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="Long">
+        DELETE FROM third_category WHERE id = #{id}
+    </delete>
+
+    <select id="findBySubCategoryId" resultType="ThirdCategory">
+        SELECT * FROM third_category WHERE sub_category_id = #{subCategoryId}
+    </select>
+
+</mapper>

@@ -7,9 +7,9 @@ import com.sportsequipment.entity.MainCategory;
 import com.sportsequipment.entity.SubCategory;
 import com.sportsequipment.entity.ThirdCategory;
 import com.sportsequipment.exception.ResourceNotFoundException;
-import com.sportsequipment.repository.MainCategoryRepository;
-import com.sportsequipment.repository.SubCategoryRepository;
-import com.sportsequipment.repository.ThirdCategoryRepository;
+import com.sportsequipment.mapper.MainCategoryMapper;
+import com.sportsequipment.mapper.SubCategoryMapper;
+import com.sportsequipment.mapper.ThirdCategoryMapper;
 import com.sportsequipment.service.CategoryService;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,18 +23,18 @@ import java.util.stream.Collectors;
 public class CategoryServiceImpl implements CategoryService {
 
     @Autowired
-    private MainCategoryRepository mainCategoryRepository;
+    private MainCategoryMapper mainCategoryMapper;
 
     @Autowired
-    private SubCategoryRepository subCategoryRepository;
+    private SubCategoryMapper subCategoryMapper;
 
     @Autowired
-    private ThirdCategoryRepository thirdCategoryRepository;
+    private ThirdCategoryMapper thirdCategoryMapper;
 
     @Override
     @Transactional(readOnly = true)
     public List<CategoryDTO> getAllMainCategoriesWithSubCategories() {
-        return mainCategoryRepository.findAll().stream()
+        return mainCategoryMapper.findAll().stream()
                 .map(this::mapToCategoryDTO)
                 .collect(Collectors.toList());
     }
@@ -42,49 +42,58 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     @Transactional(readOnly = true)
     public List<MainCategory> getAllMainCategories() {
-        return mainCategoryRepository.findAll();
+        return mainCategoryMapper.findAll();
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<SubCategory> getSubCategoriesByMainId(Long mainId) {
-        return subCategoryRepository.findByMainCategoryId(mainId);
+        return subCategoryMapper.findByMainCategoryId(mainId);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<ThirdCategory> getThirdCategoriesBySubId(Long subId) {
-        return thirdCategoryRepository.findBySubCategoryId(subId);
+        return thirdCategoryMapper.findBySubCategoryId(subId);
     }
 
     @Override
     @Transactional(readOnly = true)
-    @SuppressWarnings("null")
     public MainCategory getMainCategoryById(Long id) {
-        return mainCategoryRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Main category not found with id: " + id));
+        MainCategory category = mainCategoryMapper.findById(id);
+        if (category == null) {
+            throw new ResourceNotFoundException("Main category not found with id: " + id);
+        }
+        return category;
     }
 
     @Override
     @Transactional(readOnly = true)
-    @SuppressWarnings("null")
     public SubCategory getSubCategoryById(Long id) {
-        return subCategoryRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Sub category not found with id: " + id));
+        SubCategory category = subCategoryMapper.findById(id);
+        if (category == null) {
+            throw new ResourceNotFoundException("Sub category not found with id: " + id);
+        }
+        return category;
     }
 
     @Override
     @Transactional(readOnly = true)
-    @SuppressWarnings("null")
     public ThirdCategory getThirdCategoryById(Long id) {
-        return thirdCategoryRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Third category not found with id: " + id));
+        ThirdCategory category = thirdCategoryMapper.findById(id);
+        if (category == null) {
+            throw new ResourceNotFoundException("Third category not found with id: " + id);
+        }
+        return category;
     }
 
     @Override
     @Transactional
     public MainCategory createMainCategory(MainCategory mainCategory) {
-        return mainCategoryRepository.save(mainCategory);
+        mainCategory.setCreatedAt(java.time.LocalDateTime.now());
+        mainCategory.setUpdatedAt(java.time.LocalDateTime.now());
+        mainCategoryMapper.insert(mainCategory);
+        return mainCategory;
     }
 
     @Override
@@ -92,7 +101,10 @@ public class CategoryServiceImpl implements CategoryService {
     public SubCategory createSubCategory(Long mainCategoryId, SubCategory subCategory) {
         MainCategory mainCategory = getMainCategoryById(mainCategoryId);
         subCategory.setMainCategory(mainCategory);
-        return subCategoryRepository.save(subCategory);
+        subCategory.setCreatedAt(java.time.LocalDateTime.now());
+        subCategory.setUpdatedAt(java.time.LocalDateTime.now());
+        subCategoryMapper.insert(subCategory);
+        return subCategory;
     }
 
     @Override
@@ -100,7 +112,10 @@ public class CategoryServiceImpl implements CategoryService {
     public ThirdCategory createThirdCategory(Long subCategoryId, ThirdCategory thirdCategory) {
         SubCategory subCategory = getSubCategoryById(subCategoryId);
         thirdCategory.setSubCategory(subCategory);
-        return thirdCategoryRepository.save(thirdCategory);
+        thirdCategory.setCreatedAt(java.time.LocalDateTime.now());
+        thirdCategory.setUpdatedAt(java.time.LocalDateTime.now());
+        thirdCategoryMapper.insert(thirdCategory);
+        return thirdCategory;
     }
 
     @Override
@@ -109,7 +124,9 @@ public class CategoryServiceImpl implements CategoryService {
         MainCategory existingMainCategory = getMainCategoryById(id);
         existingMainCategory.setName(mainCategory.getName());
         existingMainCategory.setDescription(mainCategory.getDescription());
-        return mainCategoryRepository.save(existingMainCategory);
+        existingMainCategory.setUpdatedAt(java.time.LocalDateTime.now());
+        mainCategoryMapper.update(existingMainCategory);
+        return existingMainCategory;
     }
 
     @Override
@@ -118,7 +135,9 @@ public class CategoryServiceImpl implements CategoryService {
         SubCategory existingSubCategory = getSubCategoryById(id);
         existingSubCategory.setName(subCategory.getName());
         existingSubCategory.setDescription(subCategory.getDescription());
-        return subCategoryRepository.save(existingSubCategory);
+        existingSubCategory.setUpdatedAt(java.time.LocalDateTime.now());
+        subCategoryMapper.update(existingSubCategory);
+        return existingSubCategory;
     }
 
     @Override
@@ -127,28 +146,30 @@ public class CategoryServiceImpl implements CategoryService {
         ThirdCategory existingThirdCategory = getThirdCategoryById(id);
         existingThirdCategory.setName(thirdCategory.getName());
         existingThirdCategory.setDescription(thirdCategory.getDescription());
-        return thirdCategoryRepository.save(existingThirdCategory);
+        existingThirdCategory.setUpdatedAt(java.time.LocalDateTime.now());
+        thirdCategoryMapper.update(existingThirdCategory);
+        return existingThirdCategory;
     }
 
     @Override
     @Transactional
     public void deleteMainCategory(Long id) {
-        MainCategory mainCategory = getMainCategoryById(id);
-        mainCategoryRepository.delete(mainCategory);
+        getMainCategoryById(id);
+        mainCategoryMapper.deleteById(id);
     }
 
     @Override
     @Transactional
     public void deleteSubCategory(Long id) {
-        SubCategory subCategory = getSubCategoryById(id);
-        subCategoryRepository.delete(subCategory);
+        getSubCategoryById(id);
+        subCategoryMapper.deleteById(id);
     }
 
     @Override
     @Transactional
     public void deleteThirdCategory(Long id) {
-        ThirdCategory thirdCategory = getThirdCategoryById(id);
-        thirdCategoryRepository.delete(thirdCategory);
+        getThirdCategoryById(id);
+        thirdCategoryMapper.deleteById(id);
     }
 
     // 映射方法

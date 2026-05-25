@@ -4,14 +4,15 @@ import com.sportsequipment.dto.ReviewDTO;
 import com.sportsequipment.dto.UserDTO;
 import com.sportsequipment.entity.Order;
 import com.sportsequipment.entity.OrderItem;
+import com.sportsequipment.entity.Product;
 import com.sportsequipment.entity.Review;
 import com.sportsequipment.exception.ResourceNotFoundException;
 import com.sportsequipment.exception.UnauthorizedException;
 import com.sportsequipment.exception.ValidationException;
-import com.sportsequipment.repository.OrderItemRepository;
-import com.sportsequipment.repository.OrderRepository;
-import com.sportsequipment.repository.ProductRepository;
-import com.sportsequipment.repository.ReviewRepository;
+import com.sportsequipment.mapper.OrderItemMapper;
+import com.sportsequipment.mapper.OrderMapper;
+import com.sportsequipment.mapper.ProductMapper;
+import com.sportsequipment.mapper.ReviewMapper;
 import com.sportsequipment.security.UserDetailsImpl;
 import com.sportsequipment.service.ReviewService;
 import com.sportsequipment.service.UserService;
@@ -31,16 +32,16 @@ import java.util.stream.Collectors;
 public class ReviewServiceImpl implements ReviewService {
 
     @Autowired
-    private ReviewRepository reviewRepository;
+    private ReviewMapper reviewMapper;
 
     @Autowired
-    private ProductRepository productRepository;
+    private ProductMapper productMapper;
 
     @Autowired
-    private OrderRepository orderRepository;
+    private OrderMapper orderMapper;
 
     @Autowired
-    private OrderItemRepository orderItemRepository;
+    private OrderItemMapper orderItemMapper;
 
     @Autowired
     private UserService userService;
@@ -67,10 +68,12 @@ public class ReviewServiceImpl implements ReviewService {
         if (productId == null) {
             throw new ValidationException("商品ID不能为空");
         }
-        
+
         // 检查产品是否存在
-        productRepository.findById(productId)
-                .orElseThrow(() -> new ResourceNotFoundException("商品不存在"));
+        Product product = productMapper.findById(productId);
+        if (product == null) {
+            throw new ResourceNotFoundException("商品不存在");
+        }
 
         // 检查用户是否已购买该商品
         boolean hasPurchased = hasUserPurchasedProduct(userId, review.getProductId());
@@ -79,7 +82,7 @@ public class ReviewServiceImpl implements ReviewService {
         }
 
         // 检查用户是否已评价该商品
-        boolean hasReviewed = reviewRepository.existsByUserIdAndProductId(userId, review.getProductId());
+        boolean hasReviewed = reviewMapper.existsByUserIdAndProductId(userId, review.getProductId()) > 0;
         if (hasReviewed) {
             throw new ValidationException("您已经评价过该商品");
         }
@@ -89,10 +92,10 @@ public class ReviewServiceImpl implements ReviewService {
         review.setCreatedAt(LocalDateTime.now());
 
         // 保存评价
-        Review savedReview = reviewRepository.save(review);
+        reviewMapper.insert(review);
 
         // 转换为DTO并返回
-        return mapToReviewDTO(savedReview);
+        return mapToReviewDTO(review);
     }
 
     @Override
@@ -102,12 +105,14 @@ public class ReviewServiceImpl implements ReviewService {
         if (productId == null) {
             throw new ValidationException("商品ID不能为空");
         }
-        
-        // 检查产品是否存在
-        productRepository.findById(productId)
-                .orElseThrow(() -> new ResourceNotFoundException("商品不存在"));
 
-        List<Review> reviews = reviewRepository.findByProductId(productId);
+        // 检查产品是否存在
+        Product product = productMapper.findById(productId);
+        if (product == null) {
+            throw new ResourceNotFoundException("商品不存在");
+        }
+
+        List<Review> reviews = reviewMapper.findByProductId(productId);
         return reviews.stream()
                 .map(this::mapToReviewDTO)
                 .collect(Collectors.toList());
@@ -116,7 +121,7 @@ public class ReviewServiceImpl implements ReviewService {
     @Override
     @Transactional(readOnly = true)
     public List<ReviewDTO> getReviewsByUserId(Long userId) {
-        List<Review> reviews = reviewRepository.findByUserId(userId);
+        List<Review> reviews = reviewMapper.findByUserId(userId);
         return reviews.stream()
                 .map(this::mapToReviewDTO)
                 .collect(Collectors.toList());
@@ -129,12 +134,14 @@ public class ReviewServiceImpl implements ReviewService {
         if (productId == null) {
             throw new ValidationException("商品ID不能为空");
         }
-        
-        // 检查产品是否存在
-        productRepository.findById(productId)
-                .orElseThrow(() -> new ResourceNotFoundException("商品不存在"));
 
-        List<Review> reviews = reviewRepository.findByProductId(productId);
+        // 检查产品是否存在
+        Product product = productMapper.findById(productId);
+        if (product == null) {
+            throw new ResourceNotFoundException("商品不存在");
+        }
+
+        List<Review> reviews = reviewMapper.findByProductId(productId);
         if (reviews.isEmpty()) {
             return 0.0;
         }
@@ -144,7 +151,7 @@ public class ReviewServiceImpl implements ReviewService {
         for (Review review : reviews) {
             sum = sum.add(BigDecimal.valueOf(review.getRating()));
         }
-        
+
         // 计算平均值并保留2位小数
         BigDecimal average = sum.divide(BigDecimal.valueOf(reviews.size()), 2, RoundingMode.HALF_UP);
         return average.doubleValue();
@@ -157,16 +164,17 @@ public class ReviewServiceImpl implements ReviewService {
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
         Long userId = userDetails.getId();
 
-        return reviewRepository.existsByUserIdAndProductId(userId, productId);
+        return reviewMapper.existsByUserIdAndProductId(userId, productId) > 0;
     }
 
     // 检查用户是否已购买该商品
     private boolean hasUserPurchasedProduct(Long userId, Long productId) {
-        List<Order> userOrders = orderRepository.findByUserId(userId);
+        List<Order> userOrders = orderMapper.findByUserId(userId);
         for (Order order : userOrders) {
             // 订单状态必须是已支付或已发货或已完成
-            if (order.getStatus().equals("PAID") || order.getStatus().equals("SHIPPED") || order.getStatus().equals("DELIVERED")) {
-                List<OrderItem> orderItems = orderItemRepository.findByOrderId(order.getId());
+            if (order.getStatus().equals("PAID") || order.getStatus().equals("SHIPPED")
+                    || order.getStatus().equals("DELIVERED")) {
+                List<OrderItem> orderItems = orderItemMapper.findByOrderId(order.getId());
                 for (OrderItem item : orderItems) {
                     if (item.getProduct().getId().equals(productId)) {
                         return true;
@@ -186,12 +194,12 @@ public class ReviewServiceImpl implements ReviewService {
         reviewDTO.setRating(review.getRating());
         reviewDTO.setComment(review.getComment());
         reviewDTO.setCreatedAt(review.getCreatedAt());
-        
+
         // 设置用户名
         // 通过review.getUserId()直接获取User实体的用户名
         UserDTO userDTO = userService.getUserById(review.getUserId());
         reviewDTO.setUsername(userDTO.getUsername());
-        
+
         return reviewDTO;
     }
 }

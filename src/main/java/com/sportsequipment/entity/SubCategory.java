@@ -1,31 +1,26 @@
 package com.sportsequipment.entity;
 
-import jakarta.persistence.*;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
-@Entity
-@Table(name = "sub_category",
-        uniqueConstraints = {
-                @UniqueConstraint(columnNames = {"name", "main_category_id"})
-        })
 public class SubCategory {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
     private String name;
 
     private String description;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "main_category_id", nullable = false)
+    private Long mainCategoryId;
+
     private MainCategory mainCategory;
 
-    @OneToMany(mappedBy = "subCategory", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ThirdCategory> thirdCategories;
+    private LocalDateTime createdAt;
 
-    // Getters and setters
+    private LocalDateTime updatedAt;
+
+    private List<ThirdCategory> thirdCategories = new ArrayList<>();
+
     public Long getId() {
         return id;
     }
@@ -50,12 +45,36 @@ public class SubCategory {
         this.description = description;
     }
 
+    public Long getMainCategoryId() {
+        return mainCategoryId;
+    }
+
+    public void setMainCategoryId(Long mainCategoryId) {
+        this.mainCategoryId = mainCategoryId;
+    }
+
     public MainCategory getMainCategory() {
         return mainCategory;
     }
 
     public void setMainCategory(MainCategory mainCategory) {
         this.mainCategory = mainCategory;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
     }
 
     public List<ThirdCategory> getThirdCategories() {
@@ -66,4 +85,3 @@ public class SubCategory {
         this.thirdCategories = thirdCategories;
     }
 }
-    

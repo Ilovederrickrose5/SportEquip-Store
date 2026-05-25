@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sportsequipment.mapper.FavoriteMapper">
+
+    <select id="findById" resultType="Favorite">
+        SELECT * FROM favorite WHERE id = #{id}
+    </select>
+
+    <select id="findAll" resultType="Favorite">
+        SELECT * FROM favorite
+    </select>
+
+    <insert id="insert" parameterType="Favorite">
+        INSERT INTO favorite (user_id, product_id, created_at)
+        VALUES (#{userId}, #{productId}, #{createdAt})
+    </insert>
+
+    <update id="update" parameterType="Favorite">
+        UPDATE favorite SET
+        user_id = #{userId},
+        product_id = #{productId}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="Long">
+        DELETE FROM favorite WHERE id = #{id}
+    </delete>
+
+    <select id="findByUserId" resultType="Favorite">
+        SELECT * FROM favorite WHERE user_id = #{userId}
+    </select>
+
+    <select id="findByUserIdAndProductId" resultType="Favorite">
+        SELECT * FROM favorite WHERE user_id = #{userId} AND product_id = #{productId}
+    </select>
+
+    <delete id="deleteByUserIdAndProductId">
+        DELETE FROM favorite WHERE user_id = #{userId} AND product_id = #{productId}
+    </delete>
+
+    <select id="existsByUserIdAndProductId" resultType="Integer">
+        SELECT COUNT(*) FROM favorite WHERE user_id = #{userId} AND product_id = #{productId}
+    </select>
+
+</mapper>

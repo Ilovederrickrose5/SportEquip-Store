@@ -8,9 +8,9 @@ import com.sportsequipment.entity.Product;
 import com.sportsequipment.entity.User;
 import com.sportsequipment.exception.ResourceNotFoundException;
 import com.sportsequipment.exception.UnauthorizedException;
-import com.sportsequipment.repository.OrderRepository;
-import com.sportsequipment.repository.ProductRepository;
-import com.sportsequipment.repository.UserRepository;
+import com.sportsequipment.mapper.OrderMapper;
+import com.sportsequipment.mapper.ProductMapper;
+import com.sportsequipment.mapper.UserMapper;
 import com.sportsequipment.security.UserDetailsImpl;
 import com.sportsequipment.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,20 +27,18 @@ import java.util.stream.Collectors;
 public class OrderServiceImpl implements OrderService {
 
     @Autowired
-    private OrderRepository orderRepository;
-
-
+    private OrderMapper orderMapper;
 
     @Autowired
-    private UserRepository userRepository;
+    private UserMapper userMapper;
 
     @Autowired
-    private ProductRepository productRepository;
+    private ProductMapper productMapper;
 
     @Override
     @Transactional(readOnly = true)
     public List<OrderDTO> getAllOrders() {
-        return orderRepository.findAll().stream()
+        return orderMapper.findAll().stream()
                 .map(this::mapToOrderDTO)
                 .collect(Collectors.toList());
     }
@@ -50,8 +48,8 @@ public class OrderServiceImpl implements OrderService {
     public List<OrderDTO> getCurrentUserOrders() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-        
-        return orderRepository.findByUserId(userDetails.getId()).stream()
+
+        return orderMapper.findByUserId(userDetails.getId()).stream()
                 .map(this::mapToOrderDTO)
                 .collect(Collectors.toList());
     }
@@ -62,16 +60,18 @@ public class OrderServiceImpl implements OrderService {
         if (id == null) {
             throw new IllegalArgumentException("Order ID cannot be null");
         }
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + id));
-        
+        Order order = orderMapper.findById(id);
+        if (order == null) {
+            throw new ResourceNotFoundException("Order not found with id: " + id);
+        }
+
         // 检查权限
         User user = order.getUser();
         if (user == null) {
             throw new IllegalStateException("Order user cannot be null");
         }
         checkOrderAccess(user.getId());
-        
+
         return mapToOrderDTO(order);
     }
 
@@ -80,14 +80,16 @@ public class OrderServiceImpl implements OrderService {
     public OrderDTO createOrder(OrderDTO orderDTO) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-        
+
         Long userId = userDetails.getId();
         if (userId == null) {
             throw new IllegalStateException("User ID cannot be null");
         }
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
-        
+        User user = userMapper.findById(userId);
+        if (user == null) {
+            throw new ResourceNotFoundException("User not found with id: " + userId);
+        }
+
         // 创建订单
         Order order = new Order();
         order.setUser(user);
@@ -105,52 +107,56 @@ public class OrderServiceImpl implements OrderService {
         order.setRecipientName(orderDTO.getRecipientName() != null ? orderDTO.getRecipientName() : user.getUsername());
         // 设置订单备注
         order.setRemark(orderDTO.getRemark());
-        
+        order.setCreatedAt(java.time.LocalDateTime.now());
+        order.setUpdatedAt(java.time.LocalDateTime.now());
+
         // 使用数组来存储可变的BigDecimal值
-        BigDecimal[] totalAmountWrapper = {BigDecimal.ZERO};
-        
+        BigDecimal[] totalAmountWrapper = { BigDecimal.ZERO };
+
         // 创建订单项
         List<OrderItemDTO> dtoItems = orderDTO.getOrderItems();
         if (dtoItems == null || dtoItems.isEmpty()) {
             throw new IllegalStateException("Order must contain at least one order item");
         }
-        List<OrderItem> orderItems = dtoItems.stream()
-                .map(itemDTO -> {
-                    Long productId = itemDTO.getProductId();
-                    if (productId == null) {
-                        throw new IllegalStateException("Product ID cannot be null");
-                    }
-                    Product product = productRepository.findById(productId)
-                            .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + productId));
-                    
-                    // 检查库存
-                    if (product.getStock() < itemDTO.getQuantity()) {
-                        throw new IllegalArgumentException("Insufficient stock for product: " + product.getName());
-                    }
-                    
-                    // 减少库存
-                    product.setStock(product.getStock() - itemDTO.getQuantity());
-                    productRepository.save(product);
-                    
-                    // 创建订单项
-                    OrderItem orderItem = new OrderItem();
-                    orderItem.setOrder(order);
-                    orderItem.setProduct(product);
-                    orderItem.setQuantity(itemDTO.getQuantity());
-                    orderItem.setPrice(product.getPrice());
-                    
-                    // 累加总金额
-                    totalAmountWrapper[0] = totalAmountWrapper[0].add(product.getPrice().multiply(BigDecimal.valueOf(itemDTO.getQuantity())));
-                    
-                    return orderItem;
-                })
-                .collect(Collectors.toList());
-        
+
+        orderMapper.insert(order);
+
+        for (OrderItemDTO itemDTO : dtoItems) {
+            Long productId = itemDTO.getProductId();
+            if (productId == null) {
+                throw new IllegalStateException("Product ID cannot be null");
+            }
+            Product product = productMapper.findById(productId);
+            if (product == null) {
+                throw new ResourceNotFoundException("Product not found with id: " + productId);
+            }
+
+            // 检查库存
+            if (product.getStock() < itemDTO.getQuantity()) {
+                throw new IllegalArgumentException("Insufficient stock for product: " + product.getName());
+            }
+
+            // 减少库存
+            product.setStock(product.getStock() - itemDTO.getQuantity());
+            product.setUpdatedAt(java.time.LocalDateTime.now());
+            productMapper.update(product);
+
+            // 创建订单项
+            OrderItem orderItem = new OrderItem();
+            orderItem.setOrder(order);
+            orderItem.setProduct(product);
+            orderItem.setQuantity(itemDTO.getQuantity());
+            orderItem.setPrice(product.getPrice());
+
+            // 累加总金额
+            totalAmountWrapper[0] = totalAmountWrapper[0]
+                    .add(product.getPrice().multiply(BigDecimal.valueOf(itemDTO.getQuantity())));
+        }
+
         order.setTotalAmount(totalAmountWrapper[0]);
-        order.setOrderItems(orderItems);
-        
-        Order savedOrder = orderRepository.save(order);
-        return mapToOrderDTO(savedOrder);
+        orderMapper.update(order);
+
+        return mapToOrderDTO(order);
     }
 
     @Override
@@ -163,18 +169,21 @@ public class OrderServiceImpl implements OrderService {
         if (status == null) {
             throw new IllegalArgumentException("Order status cannot be null");
         }
-        
+
         // 验证状态是否有效
         if (!isValidStatus(status)) {
             throw new IllegalArgumentException("Invalid order status: " + status);
         }
-        
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + id));
-        
+
+        Order order = orderMapper.findById(id);
+        if (order == null) {
+            throw new ResourceNotFoundException("Order not found with id: " + id);
+        }
+
         order.setStatus(status);
-        Order updatedOrder = orderRepository.save(order);
-        return mapToOrderDTO(updatedOrder);
+        order.setUpdatedAt(java.time.LocalDateTime.now());
+        orderMapper.update(order);
+        return mapToOrderDTO(order);
     }
 
     @Override
@@ -184,30 +193,25 @@ public class OrderServiceImpl implements OrderService {
         if (id == null) {
             throw new IllegalArgumentException("Order ID cannot be null");
         }
-        
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + id));
-        
+
+        Order order = orderMapper.findById(id);
+        if (order == null) {
+            throw new ResourceNotFoundException("Order not found with id: " + id);
+        }
+
         // 如果订单不是待处理状态，则不允许删除
         if (!order.getStatus().equals("PENDING")) {
             throw new IllegalStateException("Cannot delete order with status: " + order.getStatus());
         }
-        
-        // 恢复库存
-        order.getOrderItems().forEach(item -> {
-            Product product = item.getProduct();
-            product.setStock(product.getStock() + item.getQuantity());
-            productRepository.save(product);
-        });
-        
-        orderRepository.delete(order);
+
+        orderMapper.deleteById(id);
     }
 
     // 检查订单访问权限
     private void checkOrderAccess(Long orderUserId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-        
+
         // 只有管理员或订单所有者可以访问
         if (!userDetails.getRole().equals("ADMIN") && !userDetails.getId().equals(orderUserId)) {
             throw new UnauthorizedException("您无权访问该订单");
@@ -216,9 +220,9 @@ public class OrderServiceImpl implements OrderService {
 
     // 验证订单状态是否有效
     private boolean isValidStatus(String status) {
-        return status.equals("PENDING") || status.equals("PAID") || 
-               status.equals("SHIPPED") || status.equals("DELIVERED") || 
-               status.equals("CANCELLED");
+        return status.equals("PENDING") || status.equals("PAID") ||
+                status.equals("SHIPPED") || status.equals("DELIVERED") ||
+                status.equals("CANCELLED");
     }
 
     // 转换实体到DTO
@@ -236,18 +240,18 @@ public class OrderServiceImpl implements OrderService {
         // 从订单实体中获取支付方式
         orderDTO.setPaymentMethod(order.getPaymentMethod());
         // 从订单实体中获取收货人姓名，如果为null则使用用户名
-        orderDTO.setRecipientName(order.getRecipientName() != null ? order.getRecipientName() : order.getUser().getUsername());
+        orderDTO.setRecipientName(
+                order.getRecipientName() != null ? order.getRecipientName() : order.getUser().getUsername());
         // 从订单实体中获取订单备注
         orderDTO.setRemark(order.getRemark());
         orderDTO.setCreatedAt(order.getCreatedAt());
         orderDTO.setUpdatedAt(order.getUpdatedAt());
-        
+
         orderDTO.setOrderItems(
-            order.getOrderItems().stream()
-                .map(this::mapToOrderItemDTO)
-                .collect(Collectors.toList())
-        );
-        
+                order.getOrderItems().stream()
+                        .map(this::mapToOrderItemDTO)
+                        .collect(Collectors.toList()));
+
         return orderDTO;
     }
 
@@ -262,4 +266,3 @@ public class OrderServiceImpl implements OrderService {
         return orderItemDTO;
     }
 }
-    

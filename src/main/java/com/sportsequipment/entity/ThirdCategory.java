@@ -1,31 +1,22 @@
 package com.sportsequipment.entity;
 
-import jakarta.persistence.*;
-import java.util.List;
+import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "third_category",
-        uniqueConstraints = {
-                @UniqueConstraint(columnNames = {"name", "sub_category_id"})
-        })
 public class ThirdCategory {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
     private String name;
 
     private String description;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sub_category_id", nullable = false)
+    private Long subCategoryId;
+
     private SubCategory subCategory;
 
-    @OneToMany(mappedBy = "thirdCategory", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Product> products;
+    private LocalDateTime createdAt;
 
-    // Getters and setters
+    private LocalDateTime updatedAt;
+
     public Long getId() {
         return id;
     }
@@ -50,6 +41,14 @@ public class ThirdCategory {
         this.description = description;
     }
 
+    public Long getSubCategoryId() {
+        return subCategoryId;
+    }
+
+    public void setSubCategoryId(Long subCategoryId) {
+        this.subCategoryId = subCategoryId;
+    }
+
     public SubCategory getSubCategory() {
         return subCategory;
     }
@@ -58,12 +57,19 @@ public class ThirdCategory {
         this.subCategory = subCategory;
     }
 
-    public List<Product> getProducts() {
-        return products;
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
     }
 
-    public void setProducts(List<Product> products) {
-        this.products = products;
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
     }
 }
-    
