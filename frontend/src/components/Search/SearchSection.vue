@@ -88,7 +88,7 @@ export default {
 </script>
 
 <style scoped lang="scss">
-@import '../../assets/css/variables.scss';
+@use '../../assets/css/variables.scss' as *;
 
 .search-section {
   background-color: var(--primary-lighter);

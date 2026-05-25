@@ -71,7 +71,7 @@ export default {
 </script>
 
 <style scoped lang="scss">
-@import '../../assets/css/variables.scss';
+@use '../../assets/css/variables.scss' as *;
 
 .cart-item {
   display: flex;

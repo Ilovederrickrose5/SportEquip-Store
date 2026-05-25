@@ -605,7 +605,7 @@
 
 <style lang="scss" scoped>
   // 导入全局CSS变量
-  @import '../assets/css/variables.scss';
+  @use '../assets/css/variables.scss' as *;
 
 .fitness-training-page {
   font-family: var(--font-family, 'Arial', sans-serif);

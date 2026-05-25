@@ -715,7 +715,7 @@ import { ArrowLeft } from '@element-plus/icons-vue';
 
 <style scoped lang="scss">
 // 导入全局变量
-@import '../assets/css/variables.scss';
+@use '../assets/css/variables.scss' as *;
 
 .cycling-sports-page {
   font-family: var(--font-family, 'Arial', sans-serif);

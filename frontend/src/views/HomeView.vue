@@ -241,7 +241,7 @@ export default {
 
 <style>
 /* 全局导入变量 */
-@import '../assets/css/variables.scss';
+@use '../assets/css/variables.scss' as *;
 
 .sports-store {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;

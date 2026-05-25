@@ -32,7 +32,7 @@ export default {
 </script>
 
 <style scoped>
-@import '../../assets/css/variables.scss';
+@use '../../assets/css/variables.scss' as *;
 
 .modal-overlay {
   position: fixed;

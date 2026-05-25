@@ -444,7 +444,7 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-@import '../components/Product/product-common.scss';
+@use '../components/Product/product-common.scss' as *;
 
 // 商品统计样式增强
 .product-stats {

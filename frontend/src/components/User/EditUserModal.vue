@@ -129,7 +129,7 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-@import '../../assets/css/variables.scss';
+@use '../../assets/css/variables.scss' as *;
 
 .edit-user-form {
   margin-bottom: 0;

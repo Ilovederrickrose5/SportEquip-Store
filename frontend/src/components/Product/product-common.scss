@@ -1,5 +1,5 @@
 // 商品管理组件公共样式
-@import '../../assets/css/variables.scss';
+@use '../../assets/css/variables.scss' as *;
 
 // 容器基础样式
 .product-module {

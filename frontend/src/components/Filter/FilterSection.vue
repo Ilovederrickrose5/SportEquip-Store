@@ -60,7 +60,7 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-@import '../../assets/css/variables.scss';
+@use '../../assets/css/variables.scss' as *;
 
 .filter-section {
   margin-bottom: var(--spacing-xl);

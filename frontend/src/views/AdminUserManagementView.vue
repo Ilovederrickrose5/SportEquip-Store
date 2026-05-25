@@ -279,7 +279,7 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-@import '../assets/css/variables.scss';
+@use '../assets/css/variables.scss' as *;
 
 .admin-user-management {
   max-width: 1200px;
