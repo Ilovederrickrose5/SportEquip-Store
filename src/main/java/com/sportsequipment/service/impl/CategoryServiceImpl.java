@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -173,41 +174,36 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     // 映射方法
-    @SuppressWarnings("null")
     private CategoryDTO mapToCategoryDTO(MainCategory mainCategory) {
         CategoryDTO categoryDTO = new CategoryDTO();
         categoryDTO.setId(mainCategory.getId());
         categoryDTO.setName(mainCategory.getName());
         categoryDTO.setDescription(mainCategory.getDescription());
 
-        if (mainCategory.getSubCategories() != null) {
-            categoryDTO.setSubCategories(
-                    mainCategory.getSubCategories().stream()
-                            .map(this::mapToSubCategoryDTO)
-                            .collect(Collectors.toList()));
-        }
+        Optional.ofNullable(mainCategory.getSubCategories())
+                .ifPresent(subCategories -> categoryDTO.setSubCategories(
+                        subCategories.stream()
+                                .map(this::mapToSubCategoryDTO)
+                                .collect(Collectors.toList())));
 
         return categoryDTO;
     }
 
-    @SuppressWarnings("null")
     private SubCategoryDTO mapToSubCategoryDTO(SubCategory subCategory) {
         SubCategoryDTO subCategoryDTO = new SubCategoryDTO();
         subCategoryDTO.setId(subCategory.getId());
         subCategoryDTO.setName(subCategory.getName());
         subCategoryDTO.setDescription(subCategory.getDescription());
 
-        if (subCategory.getThirdCategories() != null) {
-            subCategoryDTO.setThirdCategories(
-                    subCategory.getThirdCategories().stream()
-                            .map(this::mapToThirdCategoryDTO)
-                            .collect(Collectors.toList()));
-        }
+        Optional.ofNullable(subCategory.getThirdCategories())
+                .ifPresent(thirdCategories -> subCategoryDTO.setThirdCategories(
+                        thirdCategories.stream()
+                                .map(this::mapToThirdCategoryDTO)
+                                .collect(Collectors.toList())));
 
         return subCategoryDTO;
     }
 
-    @SuppressWarnings("null")
     private ThirdCategoryDTO mapToThirdCategoryDTO(ThirdCategory thirdCategory) {
         ThirdCategoryDTO thirdCategoryDTO = new ThirdCategoryDTO();
         thirdCategoryDTO.setId(thirdCategory.getId());
