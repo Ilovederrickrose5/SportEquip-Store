@@ -4,30 +4,29 @@ import com.sportsequipment.dto.CategoryDTO;
 import com.sportsequipment.entity.MainCategory;
 import com.sportsequipment.entity.SubCategory;
 import com.sportsequipment.entity.ThirdCategory;
-import jakarta.annotation.Nonnull;
 
 import java.util.List;
 
 public interface CategoryService {
     List<CategoryDTO> getAllMainCategoriesWithSubCategories();
     List<MainCategory> getAllMainCategories();
-    List<SubCategory> getSubCategoriesByMainId(@Nonnull Long mainId);
-    List<ThirdCategory> getThirdCategoriesBySubId(@Nonnull Long subId);
+    List<SubCategory> getSubCategoriesByMainId(Long mainId);
+    List<ThirdCategory> getThirdCategoriesBySubId(Long subId);
 
-    MainCategory getMainCategoryById(@Nonnull Long id);
-    SubCategory getSubCategoryById(@Nonnull Long id);
-    ThirdCategory getThirdCategoryById(@Nonnull Long id);
+    MainCategory getMainCategoryById(Long id);
+    SubCategory getSubCategoryById(Long id);
+    ThirdCategory getThirdCategoryById(Long id);
 
     MainCategory createMainCategory(MainCategory mainCategory);
-    SubCategory createSubCategory(@Nonnull Long mainCategoryId, SubCategory subCategory);
-    ThirdCategory createThirdCategory(@Nonnull Long subCategoryId, ThirdCategory thirdCategory);
+    SubCategory createSubCategory(Long mainCategoryId, SubCategory subCategory);
+    ThirdCategory createThirdCategory(Long subCategoryId, ThirdCategory thirdCategory);
 
-    MainCategory updateMainCategory(@Nonnull Long id, MainCategory mainCategory);
-    SubCategory updateSubCategory(@Nonnull Long id, SubCategory subCategory);
-    ThirdCategory updateThirdCategory(@Nonnull Long id, ThirdCategory thirdCategory);
+    MainCategory updateMainCategory(Long id, MainCategory mainCategory);
+    SubCategory updateSubCategory(Long id, SubCategory subCategory);
+    ThirdCategory updateThirdCategory(Long id, ThirdCategory thirdCategory);
 
-    void deleteMainCategory(@Nonnull Long id);
-    void deleteSubCategory(@Nonnull Long id);
-    void deleteThirdCategory(@Nonnull Long id);
+    void deleteMainCategory(Long id);
+    void deleteSubCategory(Long id);
+    void deleteThirdCategory(Long id);
 }
     

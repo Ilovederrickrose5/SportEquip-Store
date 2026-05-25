@@ -10,7 +10,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import jakarta.annotation.Nonnull;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -36,7 +35,7 @@ public class ProductServiceImpl implements ProductService {
         if (id == null) {
             throw new IllegalArgumentException("Product ID cannot be null");
         }
-        
+
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
         return mapToProductDTO(product);
@@ -58,7 +57,7 @@ public class ProductServiceImpl implements ProductService {
         if (product == null) {
             throw new IllegalArgumentException("Product cannot be null");
         }
-        
+
         Product savedProduct = productRepository.save(product);
         return mapToProductDTO(savedProduct);
     }
@@ -73,16 +72,16 @@ public class ProductServiceImpl implements ProductService {
         if (product == null) {
             throw new IllegalArgumentException("Product cannot be null");
         }
-        
+
         Product existingProduct = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
-        
+
         existingProduct.setName(product.getName());
         existingProduct.setPrice(product.getPrice());
         existingProduct.setStock(product.getStock());
         existingProduct.setDescription(product.getDescription());
         existingProduct.setImageUrl(product.getImageUrl());
-        
+
         Product updatedProduct = productRepository.save(existingProduct);
         return mapToProductDTO(updatedProduct);
     }
@@ -94,19 +93,19 @@ public class ProductServiceImpl implements ProductService {
         if (id == null) {
             throw new IllegalArgumentException("Product ID cannot be null");
         }
-        
+
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
         productRepository.delete(product);
     }
 
     // 转换实体到DTO
-    private ProductDTO mapToProductDTO(@Nonnull Product product) {
+    private ProductDTO mapToProductDTO(Product product) {
         // 验证参数是否为空
         if (product == null) {
             throw new IllegalArgumentException("Product cannot be null");
         }
-        
+
         ProductDTO productDTO = new ProductDTO();
         productDTO.setId(product.getId());
         productDTO.setName(product.getName());
@@ -116,26 +115,26 @@ public class ProductServiceImpl implements ProductService {
         productDTO.setImageUrl(product.getImageUrl());
         productDTO.setCreatedAt(product.getCreatedAt());
         productDTO.setUpdatedAt(product.getUpdatedAt());
-        
+
         // 设置三级分类信息（品牌）
         if (product.getThirdCategory() != null) {
             productDTO.setThirdCategoryId(product.getThirdCategory().getId());
             productDTO.setThirdCategoryName(product.getThirdCategory().getName());
-            
+
             // 设置二级分类信息
             if (product.getThirdCategory().getSubCategory() != null) {
                 productDTO.setSubCategoryId(product.getThirdCategory().getSubCategory().getId());
                 productDTO.setSubCategoryName(product.getThirdCategory().getSubCategory().getName());
-                
+
                 // 设置一级分类信息（主分类）
                 if (product.getThirdCategory().getSubCategory().getMainCategory() != null) {
                     productDTO.setMainCategoryId(product.getThirdCategory().getSubCategory().getMainCategory().getId());
-                    productDTO.setMainCategoryName(product.getThirdCategory().getSubCategory().getMainCategory().getName());
+                    productDTO.setMainCategoryName(
+                            product.getThirdCategory().getSubCategory().getMainCategory().getName());
                 }
             }
         }
-        
+
         return productDTO;
     }
 }
-    

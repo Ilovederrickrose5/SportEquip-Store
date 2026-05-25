@@ -1,6 +1,5 @@
 package com.sportsequipment.service.impl;
 
-import jakarta.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,8 +40,8 @@ public class AddressServiceImpl implements AddressService {
         Address existingAddress = getAddressById(id);
 
         // 验证用户是否有权限修改此地址
-        if (existingAddress.getUser() == null || address.getUser() == null || 
-            !existingAddress.getUser().getId().equals(address.getUser().getId())) {
+        if (existingAddress.getUser() == null || address.getUser() == null ||
+                !existingAddress.getUser().getId().equals(address.getUser().getId())) {
             throw new SecurityException("You are not authorized to update this address");
         }
 
@@ -62,7 +61,7 @@ public class AddressServiceImpl implements AddressService {
     }
 
     @Override
-    public void deleteAddress(@Nonnull Long id) {
+    public void deleteAddress(Long id) {
         if (id == null) {
             throw new IllegalArgumentException("Address ID cannot be null");
         }
@@ -71,7 +70,7 @@ public class AddressServiceImpl implements AddressService {
     }
 
     @Override
-    public Address getAddressById(@Nonnull Long id) {
+    public Address getAddressById(Long id) {
         if (id == null) {
             throw new IllegalArgumentException("Address ID cannot be null");
         }

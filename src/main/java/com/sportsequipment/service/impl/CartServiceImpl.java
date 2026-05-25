@@ -13,7 +13,7 @@ import com.sportsequipment.repository.ProductRepository;
 import com.sportsequipment.repository.UserRepository;
 import com.sportsequipment.security.UserDetailsImpl;
 import com.sportsequipment.service.CartService;
-import jakarta.annotation.Nonnull;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -21,7 +21,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -48,13 +47,13 @@ public class CartServiceImpl implements CartService {
     private User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-        
+
         // 确保userDetails.getId()不为null
         Long userId = userDetails.getId();
         if (userId == null) {
             throw new IllegalArgumentException("User ID cannot be null");
         }
-        
+
         return userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
     }
@@ -66,7 +65,7 @@ public class CartServiceImpl implements CartService {
         User user = getCurrentUser();
         // 先使用简单查询检查购物车是否存在
         Cart cart = cartRepository.findByUserId(user.getId());
-        
+
         if (cart == null) {
             cart = new Cart();
             cart.setUser(user);
@@ -79,7 +78,7 @@ public class CartServiceImpl implements CartService {
                 cart = loadedCart;
             }
         }
-        
+
         return cart;
     }
 
@@ -92,36 +91,36 @@ public class CartServiceImpl implements CartService {
 
     @Override
     @Transactional
-    public CartDTO addToCart(@Nonnull Long productId, @Nonnull Integer quantity) {
+    public CartDTO addToCart(Long productId, Integer quantity) {
         if (quantity <= 0) {
             throw new IllegalArgumentException("Quantity must be greater than 0");
         }
-        
+
         Cart cart = getOrCreateCart();
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + productId));
-        
+
         // 检查库存
         if (product.getStock() < quantity) {
             throw new IllegalArgumentException("Insufficient stock for product: " + product.getName());
         }
-        
+
         // 检查购物车中是否已存在该商品，确保cart.getId()不为null
         Long cartId = cart.getId();
         if (cartId == null) {
             throw new IllegalStateException("Cart ID cannot be null");
         }
         CartItem existingCartItem = cartItemRepository.findByCartIdAndProductId(cartId, productId);
-        
+
         if (existingCartItem != null) {
             // 更新已有商品的数量
             int newQuantity = existingCartItem.getQuantity() + quantity;
-            
+
             // 再次检查库存
             if (product.getStock() < newQuantity) {
                 throw new IllegalArgumentException("Insufficient stock for product: " + product.getName());
             }
-            
+
             existingCartItem.setQuantity(newQuantity);
         } else {
             // 添加新商品到购物车
@@ -131,38 +130,38 @@ public class CartServiceImpl implements CartService {
             cartItem.setPrice(product.getPrice());
             cart.addCartItem(cartItem);
         }
-        
+
         cart = cartRepository.save(cart);
         return mapToCartDTO(cart);
     }
 
     @Override
     @Transactional
-    public CartDTO updateCartItem(@Nonnull Long cartItemId, @Nonnull Integer quantity) {
+    public CartDTO updateCartItem(Long cartItemId, Integer quantity) {
         if (quantity <= 0) {
             throw new IllegalArgumentException("Quantity must be greater than 0");
         }
-        
+
         Cart cart = getOrCreateCart();
         CartItem cartItem = cartItemRepository.findById(cartItemId)
                 .orElseThrow(() -> new ResourceNotFoundException("Cart item not found with id: " + cartItemId));
-        
+
         // 检查购物车项是否属于当前用户的购物车，确保ID不为null
         Long cartItemCartId = cartItem.getCart().getId();
         Long currentCartId = cart.getId();
         if (cartItemCartId == null || currentCartId == null || !cartItemCartId.equals(currentCartId)) {
             throw new SecurityException("Access denied");
         }
-        
+
         // 检查库存
         Product product = cartItem.getProduct();
         if (product.getStock() < quantity) {
             throw new IllegalArgumentException("Insufficient stock for product: " + product.getName());
         }
-        
+
         cartItem.setQuantity(quantity);
         cartItemRepository.save(cartItem);
-        
+
         // 重新加载购物车以获取最新数据
         cart = cartRepository.findByUserIdWithItemsAndProducts(cart.getUser().getId());
         return mapToCartDTO(cart);
@@ -170,21 +169,21 @@ public class CartServiceImpl implements CartService {
 
     @Override
     @Transactional
-    public CartDTO removeFromCart(@Nonnull Long cartItemId) {
+    public CartDTO removeFromCart(Long cartItemId) {
         Cart cart = getOrCreateCart();
         CartItem cartItem = cartItemRepository.findById(cartItemId)
                 .orElseThrow(() -> new ResourceNotFoundException("Cart item not found with id: " + cartItemId));
-        
+
         // 检查购物车项是否属于当前用户的购物车，确保ID不为null
         Long cartItemCartId = cartItem.getCart().getId();
         Long currentCartId = cart.getId();
         if (cartItemCartId == null || currentCartId == null || !cartItemCartId.equals(currentCartId)) {
             throw new SecurityException("Access denied");
         }
-        
+
         cart.removeCartItem(cartItem);
         cartItemRepository.delete(cartItem);
-        
+
         // 重新加载购物车以获取最新数据，添加空值检查
         Cart updatedCart = cartRepository.findByUserIdWithItemsAndProducts(cart.getUser().getId());
         if (updatedCart == null) {
@@ -221,13 +220,13 @@ public class CartServiceImpl implements CartService {
         cartDTO.setUsername(cart.getUser().getUsername());
         cartDTO.setCreatedAt(cart.getCreatedAt());
         cartDTO.setUpdatedAt(cart.getUpdatedAt());
-        
+
         List<CartItemDTO> cartItemDTOs = cart.getCartItems().stream()
                 .map(this::mapToCartItemDTO)
                 .collect(Collectors.toList());
-        
+
         cartDTO.setCartItems(cartItemDTOs);
-        
+
         return cartDTO;
     }
 
@@ -243,7 +242,7 @@ public class CartServiceImpl implements CartService {
         cartItemDTO.setQuantity(cartItem.getQuantity());
         cartItemDTO.setPrice(cartItem.getPrice());
         cartItemDTO.setItemTotal(cartItem.getItemTotal());
-        
+
         return cartItemDTO;
     }
 }

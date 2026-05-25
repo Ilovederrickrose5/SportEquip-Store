@@ -11,7 +11,7 @@ import com.sportsequipment.repository.MainCategoryRepository;
 import com.sportsequipment.repository.SubCategoryRepository;
 import com.sportsequipment.repository.ThirdCategoryRepository;
 import com.sportsequipment.service.CategoryService;
-import jakarta.annotation.Nonnull;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,40 +47,36 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<SubCategory> getSubCategoriesByMainId(@Nonnull Long mainId) {
+    public List<SubCategory> getSubCategoriesByMainId(Long mainId) {
         return subCategoryRepository.findByMainCategoryId(mainId);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<ThirdCategory> getThirdCategoriesBySubId(@Nonnull Long subId) {
+    public List<ThirdCategory> getThirdCategoriesBySubId(Long subId) {
         return thirdCategoryRepository.findBySubCategoryId(subId);
     }
 
-
-
     @Override
     @Transactional(readOnly = true)
-    public MainCategory getMainCategoryById(@Nonnull Long id) {
+    public MainCategory getMainCategoryById(Long id) {
         return mainCategoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Main category not found with id: " + id));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public SubCategory getSubCategoryById(@Nonnull Long id) {
+    public SubCategory getSubCategoryById(Long id) {
         return subCategoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Sub category not found with id: " + id));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public ThirdCategory getThirdCategoryById(@Nonnull Long id) {
+    public ThirdCategory getThirdCategoryById(Long id) {
         return thirdCategoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Third category not found with id: " + id));
     }
-
-
 
     @Override
     @Transactional
@@ -90,7 +86,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional
-    public SubCategory createSubCategory(@Nonnull Long mainCategoryId, SubCategory subCategory) {
+    public SubCategory createSubCategory(Long mainCategoryId, SubCategory subCategory) {
         MainCategory mainCategory = getMainCategoryById(mainCategoryId);
         subCategory.setMainCategory(mainCategory);
         return subCategoryRepository.save(subCategory);
@@ -98,17 +94,15 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional
-    public ThirdCategory createThirdCategory(@Nonnull Long subCategoryId, ThirdCategory thirdCategory) {
+    public ThirdCategory createThirdCategory(Long subCategoryId, ThirdCategory thirdCategory) {
         SubCategory subCategory = getSubCategoryById(subCategoryId);
         thirdCategory.setSubCategory(subCategory);
         return thirdCategoryRepository.save(thirdCategory);
     }
 
-
-
     @Override
     @Transactional
-    public MainCategory updateMainCategory(@Nonnull Long id, MainCategory mainCategory) {
+    public MainCategory updateMainCategory(Long id, MainCategory mainCategory) {
         MainCategory existingMainCategory = getMainCategoryById(id);
         existingMainCategory.setName(mainCategory.getName());
         existingMainCategory.setDescription(mainCategory.getDescription());
@@ -117,7 +111,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional
-    public SubCategory updateSubCategory(@Nonnull Long id, SubCategory subCategory) {
+    public SubCategory updateSubCategory(Long id, SubCategory subCategory) {
         SubCategory existingSubCategory = getSubCategoryById(id);
         existingSubCategory.setName(subCategory.getName());
         existingSubCategory.setDescription(subCategory.getDescription());
@@ -126,37 +120,33 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional
-    public ThirdCategory updateThirdCategory(@Nonnull Long id, ThirdCategory thirdCategory) {
+    public ThirdCategory updateThirdCategory(Long id, ThirdCategory thirdCategory) {
         ThirdCategory existingThirdCategory = getThirdCategoryById(id);
         existingThirdCategory.setName(thirdCategory.getName());
         existingThirdCategory.setDescription(thirdCategory.getDescription());
         return thirdCategoryRepository.save(existingThirdCategory);
     }
 
-
-
     @Override
     @Transactional
-    public void deleteMainCategory(@Nonnull Long id) {
+    public void deleteMainCategory(Long id) {
         MainCategory mainCategory = getMainCategoryById(id);
         mainCategoryRepository.delete(mainCategory);
     }
 
     @Override
     @Transactional
-    public void deleteSubCategory(@Nonnull Long id) {
+    public void deleteSubCategory(Long id) {
         SubCategory subCategory = getSubCategoryById(id);
         subCategoryRepository.delete(subCategory);
     }
 
     @Override
     @Transactional
-    public void deleteThirdCategory(@Nonnull Long id) {
+    public void deleteThirdCategory(Long id) {
         ThirdCategory thirdCategory = getThirdCategoryById(id);
         thirdCategoryRepository.delete(thirdCategory);
     }
-
-
 
     // 映射方法
     private CategoryDTO mapToCategoryDTO(MainCategory mainCategory) {
@@ -164,15 +154,14 @@ public class CategoryServiceImpl implements CategoryService {
         categoryDTO.setId(mainCategory.getId());
         categoryDTO.setName(mainCategory.getName());
         categoryDTO.setDescription(mainCategory.getDescription());
-        
+
         if (mainCategory.getSubCategories() != null) {
             categoryDTO.setSubCategories(
-                mainCategory.getSubCategories().stream()
-                    .map(this::mapToSubCategoryDTO)
-                    .collect(Collectors.toList())
-            );
+                    mainCategory.getSubCategories().stream()
+                            .map(this::mapToSubCategoryDTO)
+                            .collect(Collectors.toList()));
         }
-        
+
         return categoryDTO;
     }
 
@@ -181,15 +170,14 @@ public class CategoryServiceImpl implements CategoryService {
         subCategoryDTO.setId(subCategory.getId());
         subCategoryDTO.setName(subCategory.getName());
         subCategoryDTO.setDescription(subCategory.getDescription());
-        
+
         if (subCategory.getThirdCategories() != null) {
             subCategoryDTO.setThirdCategories(
-                subCategory.getThirdCategories().stream()
-                    .map(this::mapToThirdCategoryDTO)
-                    .collect(Collectors.toList())
-            );
+                    subCategory.getThirdCategories().stream()
+                            .map(this::mapToThirdCategoryDTO)
+                            .collect(Collectors.toList()));
         }
-        
+
         return subCategoryDTO;
     }
 
@@ -198,8 +186,7 @@ public class CategoryServiceImpl implements CategoryService {
         thirdCategoryDTO.setId(thirdCategory.getId());
         thirdCategoryDTO.setName(thirdCategory.getName());
         thirdCategoryDTO.setDescription(thirdCategory.getDescription());
-        
+
         return thirdCategoryDTO;
     }
 }
-    
