@@ -13,6 +13,8 @@ import com.sportsequipment.mapper.ThirdCategoryMapper;
 import com.sportsequipment.service.CategoryService;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +36,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "category:list", key = "'all'")
     public List<CategoryDTO> getAllMainCategoriesWithSubCategories() {
         return mainCategoryMapper.findAll().stream()
                 .map(this::mapToCategoryDTO)
@@ -60,6 +63,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "category:main", key = "#id")
     public MainCategory getMainCategoryById(Long id) {
         MainCategory category = mainCategoryMapper.findById(id);
         if (category == null) {
@@ -70,6 +74,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "category:sub", key = "#id")
     public SubCategory getSubCategoryById(Long id) {
         SubCategory category = subCategoryMapper.findById(id);
         if (category == null) {
@@ -80,6 +85,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "category:third", key = "#id")
     public ThirdCategory getThirdCategoryById(Long id) {
         ThirdCategory category = thirdCategoryMapper.findById(id);
         if (category == null) {
@@ -90,6 +96,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional
+    @CacheEvict(value = { "category:list", "category:main", "category:sub", "category:third" }, allEntries = true)
     public MainCategory createMainCategory(MainCategory mainCategory) {
         mainCategory.setCreatedAt(java.time.LocalDateTime.now());
         mainCategory.setUpdatedAt(java.time.LocalDateTime.now());

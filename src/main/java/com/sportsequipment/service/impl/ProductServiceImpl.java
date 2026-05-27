@@ -6,6 +6,8 @@ import com.sportsequipment.exception.ResourceNotFoundException;
 import com.sportsequipment.mapper.ProductMapper;
 import com.sportsequipment.service.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +22,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "product:list", key = "'all'")
     public List<ProductDTO> getAllProducts() {
         return productMapper.findAll().stream()
                 .map(this::mapToProductDTO)
@@ -28,6 +31,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "product:detail", key = "#id")
     public ProductDTO getProductById(Long id) {
         // 验证参数是否为空
         if (id == null) {
@@ -43,6 +47,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "product:list", key = "#page + '-' + #size")
     public List<ProductDTO> getProductsByPage(int page, int size) {
         // MyBatis 分页需要额外配置，这里简化处理
         return productMapper.findAll().stream()
@@ -52,6 +57,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
+    @CacheEvict(value = { "product:list", "product:detail" }, allEntries = true)
     public ProductDTO createProduct(Product product) {
         // 验证参数是否为空
         if (product == null) {
@@ -66,6 +72,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
+    @CacheEvict(value = { "product:list", "product:detail" }, allEntries = true)
     public ProductDTO updateProduct(Long id, Product product) {
         // 验证参数是否为空
         if (id == null) {
@@ -93,8 +100,9 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
+    @CacheEvict(value = { "product:list", "product:detail" }, allEntries = true)
     public void deleteProduct(Long id) {
-        // 验证ID是否为空
+        // 验证 ID 是否为空
         if (id == null) {
             throw new IllegalArgumentException("Product ID cannot be null");
         }
