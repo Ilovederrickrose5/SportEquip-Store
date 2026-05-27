@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 import java.util.concurrent.TimeUnit;
 
 @Component
+@SuppressWarnings("unchecked")
 public class RedisLockUtil {
 
     @Autowired
