@@ -1,9 +1,9 @@
 package com.sportsequipment.util;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 @Component
@@ -14,9 +14,8 @@ public class RedisLockUtil {
     private static final String LOCK_PREFIX = "lock:";
     private static final long DEFAULT_EXPIRE_TIME = 30L;
 
-    @Autowired
     public RedisLockUtil(RedisTemplate<String, Object> redisTemplate) {
-        this.redisTemplate = redisTemplate;
+        this.redisTemplate = Objects.requireNonNull(redisTemplate, "redisTemplate must not be null");
     }
 
     public boolean tryLock(String key, String value) {
@@ -27,8 +26,8 @@ public class RedisLockUtil {
         validateKey(key);
         validateValue(value);
         validateTimeout(expireTime);
-        validateTimeUnit(unit);
-        
+        Objects.requireNonNull(unit, "TimeUnit must not be null");
+
         String lockKey = LOCK_PREFIX + key;
         Boolean result = redisTemplate.opsForValue().setIfAbsent(lockKey, value, expireTime, unit);
         return Boolean.TRUE.equals(result);
@@ -37,7 +36,7 @@ public class RedisLockUtil {
     public boolean unlock(String key, String value) {
         validateKey(key);
         validateValue(value);
-        
+
         String lockKey = LOCK_PREFIX + key;
         Object currentValue = redisTemplate.opsForValue().get(lockKey);
         if (value.equals(currentValue)) {
@@ -61,12 +60,6 @@ public class RedisLockUtil {
     private void validateTimeout(long timeout) {
         if (timeout <= 0) {
             throw new IllegalArgumentException("Lock expire time must be greater than 0");
-        }
-    }
-
-    private void validateTimeUnit(TimeUnit unit) {
-        if (unit == null) {
-            throw new IllegalArgumentException("TimeUnit cannot be null");
         }
     }
 }

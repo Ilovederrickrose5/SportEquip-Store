@@ -1,9 +1,9 @@
 package com.sportsequipment.util;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -12,9 +12,8 @@ public class RedisUtil {
 
     private final RedisTemplate<String, Object> redisTemplate;
 
-    @Autowired
     public RedisUtil(RedisTemplate<String, Object> redisTemplate) {
-        this.redisTemplate = redisTemplate;
+        this.redisTemplate = Objects.requireNonNull(redisTemplate, "redisTemplate must not be null");
     }
 
     public void set(String key, Object value) {
@@ -25,7 +24,7 @@ public class RedisUtil {
     public void set(String key, Object value, long timeout, TimeUnit unit) {
         validateKey(key);
         validateTimeout(timeout);
-        validateTimeUnit(unit);
+        Objects.requireNonNull(unit, "TimeUnit must not be null");
         redisTemplate.opsForValue().set(key, value, timeout, unit);
     }
 
@@ -49,7 +48,7 @@ public class RedisUtil {
     public boolean expire(String key, long timeout, TimeUnit unit) {
         validateKey(key);
         validateTimeout(timeout);
-        validateTimeUnit(unit);
+        Objects.requireNonNull(unit, "TimeUnit must not be null");
         Boolean result = redisTemplate.expire(key, timeout, unit);
         return Boolean.TRUE.equals(result);
     }
@@ -60,6 +59,7 @@ public class RedisUtil {
         return result != null ? result : 0L;
     }
 
+    @SuppressWarnings("unchecked")
     public void deletePattern(String pattern) {
         validateKey(pattern);
         Set<String> keys = redisTemplate.keys(pattern);
@@ -72,7 +72,7 @@ public class RedisUtil {
         validateKey(key);
         validateValue(value);
         validateTimeout(expireTime);
-        validateTimeUnit(unit);
+        Objects.requireNonNull(unit, "TimeUnit must not be null");
         Boolean result = redisTemplate.opsForValue().setIfAbsent(key, value, expireTime, unit);
         return Boolean.TRUE.equals(result);
     }
@@ -102,12 +102,6 @@ public class RedisUtil {
     private void validateTimeout(long timeout) {
         if (timeout <= 0) {
             throw new IllegalArgumentException("Timeout must be greater than 0");
-        }
-    }
-
-    private void validateTimeUnit(TimeUnit unit) {
-        if (unit == null) {
-            throw new IllegalArgumentException("TimeUnit cannot be null");
         }
     }
 }
