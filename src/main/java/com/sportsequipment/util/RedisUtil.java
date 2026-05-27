@@ -4,11 +4,10 @@ import org.redisson.api.RBucket;
 import org.redisson.api.RKeys;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -16,15 +15,9 @@ import java.util.concurrent.TimeUnit;
 public class RedisUtil {
 
     private final RedissonClient redissonClient;
-    private final StringRedisTemplate stringRedisTemplate;
-    private final RedisTemplate<String, Object> redisTemplate;
 
-    public RedisUtil(RedissonClient redissonClient,
-            StringRedisTemplate stringRedisTemplate,
-            RedisTemplate<String, Object> redisTemplate) {
+    public RedisUtil(RedissonClient redissonClient) {
         this.redissonClient = redissonClient;
-        this.stringRedisTemplate = stringRedisTemplate;
-        this.redisTemplate = redisTemplate;
     }
 
     public void set(String key, Object value) {
@@ -37,7 +30,7 @@ public class RedisUtil {
         validateKey(key);
         validateTimeout(timeout);
         RBucket<Object> bucket = redissonClient.getBucket(key);
-        bucket.set(value, timeout, unit);
+        bucket.set(value, Duration.ofMillis(unit.toMillis(timeout)));
     }
 
     public void set(String key, Object value, Duration duration) {
@@ -46,7 +39,6 @@ public class RedisUtil {
         bucket.set(value, duration);
     }
 
-    @SuppressWarnings("unchecked")
     public <T> T get(String key, Class<T> clazz) {
         validateKey(key);
         RBucket<Object> bucket = redissonClient.getBucket(key);
@@ -76,7 +68,7 @@ public class RedisUtil {
     public boolean expire(String key, long timeout, TimeUnit unit) {
         validateKey(key);
         validateTimeout(timeout);
-        return redissonClient.getBucket(key).expire(timeout, unit);
+        return redissonClient.getBucket(key).expire(Duration.ofMillis(unit.toMillis(timeout)));
     }
 
     public boolean expire(String key, Duration duration) {
@@ -101,7 +93,11 @@ public class RedisUtil {
 
     public Set<String> keys(String pattern) {
         validateKey(pattern);
-        return redissonClient.getKeys().getKeys(pattern);
+        Set<String> result = new HashSet<>();
+        RKeys keys = redissonClient.getKeys();
+        Iterable<String> matchingKeys = keys.getKeysByPattern(pattern);
+        matchingKeys.forEach(result::add);
+        return result;
     }
 
     public RLock getLock(String key) {
