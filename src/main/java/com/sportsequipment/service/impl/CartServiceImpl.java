@@ -102,10 +102,9 @@ public class CartServiceImpl implements CartService {
 
         User user = getCurrentUser();
         String lockKey = "cart:lock:" + user.getId();
-        String lockValue = String.valueOf(System.currentTimeMillis());
 
         try {
-            boolean locked = redisUtil.tryLock(lockKey, lockValue, 10, TimeUnit.SECONDS);
+            boolean locked = redisUtil.tryLock(lockKey, 10, 30, TimeUnit.SECONDS);
             if (!locked) {
                 throw new RuntimeException("购物车操作频繁，请稍后再试");
             }
@@ -154,7 +153,7 @@ public class CartServiceImpl implements CartService {
 
             return cartDTO;
         } finally {
-            redisUtil.unlock(lockKey, lockValue);
+            redisUtil.unlock(lockKey);
         }
     }
 
@@ -167,10 +166,9 @@ public class CartServiceImpl implements CartService {
 
         User user = getCurrentUser();
         String lockKey = "cart:lock:" + user.getId();
-        String lockValue = String.valueOf(System.currentTimeMillis());
 
         try {
-            boolean locked = redisUtil.tryLock(lockKey, lockValue, 10, TimeUnit.SECONDS);
+            boolean locked = redisUtil.tryLock(lockKey, 10, 30, TimeUnit.SECONDS);
             if (!locked) {
                 throw new RuntimeException("购物车操作频繁，请稍后再试");
             }
@@ -202,7 +200,7 @@ public class CartServiceImpl implements CartService {
 
             return cartDTO;
         } finally {
-            redisUtil.unlock(lockKey, lockValue);
+            redisUtil.unlock(lockKey);
         }
     }
 
@@ -211,10 +209,9 @@ public class CartServiceImpl implements CartService {
     public CartDTO removeFromCart(Long cartItemId) {
         User user = getCurrentUser();
         String lockKey = "cart:lock:" + user.getId();
-        String lockValue = String.valueOf(System.currentTimeMillis());
 
         try {
-            boolean locked = redisUtil.tryLock(lockKey, lockValue, 10, TimeUnit.SECONDS);
+            boolean locked = redisUtil.tryLock(lockKey, 10, 30, TimeUnit.SECONDS);
             if (!locked) {
                 throw new RuntimeException("购物车操作频繁，请稍后再试");
             }
@@ -239,7 +236,7 @@ public class CartServiceImpl implements CartService {
 
             return cartDTO;
         } finally {
-            redisUtil.unlock(lockKey, lockValue);
+            redisUtil.unlock(lockKey);
         }
     }
 
@@ -248,10 +245,9 @@ public class CartServiceImpl implements CartService {
     public void clearCart() {
         User user = getCurrentUser();
         String lockKey = "cart:lock:" + user.getId();
-        String lockValue = String.valueOf(System.currentTimeMillis());
 
         try {
-            boolean locked = redisUtil.tryLock(lockKey, lockValue, 10, TimeUnit.SECONDS);
+            boolean locked = redisUtil.tryLock(lockKey, 10, 30, TimeUnit.SECONDS);
             if (!locked) {
                 throw new RuntimeException("购物车操作频繁，请稍后再试");
             }
@@ -264,7 +260,7 @@ public class CartServiceImpl implements CartService {
             String cacheKey = CART_CACHE_KEY_PREFIX + user.getId();
             redisUtil.delete(cacheKey);
         } finally {
-            redisUtil.unlock(lockKey, lockValue);
+            redisUtil.unlock(lockKey);
         }
     }
 

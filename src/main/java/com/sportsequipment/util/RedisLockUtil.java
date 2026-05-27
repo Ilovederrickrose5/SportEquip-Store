@@ -1,22 +1,21 @@
 package com.sportsequipment.util;
 
-import org.springframework.data.redis.core.StringRedisTemplate;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.stereotype.Component;
 
-import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 @Component
-@SuppressWarnings("unchecked")
 public class RedisLockUtil {
 
-    private final StringRedisTemplate stringRedisTemplate;
+    private final RedissonClient redissonClient;
 
     private static final String LOCK_PREFIX = "lock:";
     private static final long DEFAULT_EXPIRE_TIME = 30L;
 
-    public RedisLockUtil(StringRedisTemplate stringRedisTemplate) {
-        this.stringRedisTemplate = Objects.requireNonNull(stringRedisTemplate, "stringRedisTemplate must not be null");
+    public RedisLockUtil(RedissonClient redissonClient) {
+        this.redissonClient = redissonClient;
     }
 
     public boolean tryLock(String key, String value) {
@@ -27,11 +26,15 @@ public class RedisLockUtil {
         validateKey(key);
         validateValue(value);
         validateTimeout(expireTime);
-        Objects.requireNonNull(unit, "TimeUnit must not be null");
 
         String lockKey = LOCK_PREFIX + key;
-        Boolean result = stringRedisTemplate.opsForValue().setIfAbsent(lockKey, value, expireTime, unit);
-        return Boolean.TRUE.equals(result);
+        RLock lock = redissonClient.getLock(lockKey);
+        try {
+            return lock.tryLock(0, expireTime, unit);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
     }
 
     public boolean unlock(String key, String value) {
@@ -39,11 +42,24 @@ public class RedisLockUtil {
         validateValue(value);
 
         String lockKey = LOCK_PREFIX + key;
-        String currentValue = stringRedisTemplate.opsForValue().get(lockKey);
-        if (value.equals(currentValue)) {
-            return Boolean.TRUE.equals(stringRedisTemplate.delete(lockKey));
+        RLock lock = redissonClient.getLock(lockKey);
+        if (lock.isHeldByCurrentThread()) {
+            lock.unlock();
+            return true;
         }
         return false;
+    }
+
+    public void lock(String key) {
+        validateKey(key);
+        String lockKey = LOCK_PREFIX + key;
+        redissonClient.getLock(lockKey).lock();
+    }
+
+    public void lock(String key, long leaseTime, TimeUnit unit) {
+        validateKey(key);
+        String lockKey = LOCK_PREFIX + key;
+        redissonClient.getLock(lockKey).lock(leaseTime, unit);
     }
 
     private void validateKey(String key) {

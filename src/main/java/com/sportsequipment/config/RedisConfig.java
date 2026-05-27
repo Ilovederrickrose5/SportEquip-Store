@@ -19,7 +19,6 @@ import java.util.Map;
 
 @Configuration
 @EnableCaching
-@SuppressWarnings("unchecked")
 public class RedisConfig {
 
     @Bean
