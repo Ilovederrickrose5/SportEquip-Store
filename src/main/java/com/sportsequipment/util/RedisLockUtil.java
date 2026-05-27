@@ -1,6 +1,6 @@
 package com.sportsequipment.util;
 
-import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.Objects;
@@ -9,13 +9,13 @@ import java.util.concurrent.TimeUnit;
 @Component
 public class RedisLockUtil {
 
-    private final RedisTemplate<String, Object> redisTemplate;
+    private final StringRedisTemplate stringRedisTemplate;
 
     private static final String LOCK_PREFIX = "lock:";
     private static final long DEFAULT_EXPIRE_TIME = 30L;
 
-    public RedisLockUtil(RedisTemplate<String, Object> redisTemplate) {
-        this.redisTemplate = Objects.requireNonNull(redisTemplate, "redisTemplate must not be null");
+    public RedisLockUtil(StringRedisTemplate stringRedisTemplate) {
+        this.stringRedisTemplate = Objects.requireNonNull(stringRedisTemplate, "stringRedisTemplate must not be null");
     }
 
     public boolean tryLock(String key, String value) {
@@ -29,7 +29,7 @@ public class RedisLockUtil {
         Objects.requireNonNull(unit, "TimeUnit must not be null");
 
         String lockKey = LOCK_PREFIX + key;
-        Boolean result = redisTemplate.opsForValue().setIfAbsent(lockKey, value, expireTime, unit);
+        Boolean result = stringRedisTemplate.opsForValue().setIfAbsent(lockKey, value, expireTime, unit);
         return Boolean.TRUE.equals(result);
     }
 
@@ -38,9 +38,9 @@ public class RedisLockUtil {
         validateValue(value);
 
         String lockKey = LOCK_PREFIX + key;
-        Object currentValue = redisTemplate.opsForValue().get(lockKey);
+        String currentValue = stringRedisTemplate.opsForValue().get(lockKey);
         if (value.equals(currentValue)) {
-            return Boolean.TRUE.equals(redisTemplate.delete(lockKey));
+            return Boolean.TRUE.equals(stringRedisTemplate.delete(lockKey));
         }
         return false;
     }
