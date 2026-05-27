@@ -90,8 +90,19 @@ public class CartServiceImpl implements CartService {
     @Override
     @Transactional(readOnly = true)
     public CartDTO getCurrentUserCart() {
+        User user = getCurrentUser();
+        String cacheKey = CART_CACHE_KEY_PREFIX + user.getId();
+
+        Object cachedCart = redisUtil.get(cacheKey);
+        if (cachedCart != null) {
+            return (CartDTO) cachedCart;
+        }
+
         Cart cart = getOrCreateCart();
-        return mapToCartDTO(cart);
+        CartDTO cartDTO = mapToCartDTO(cart);
+        redisUtil.set(cacheKey, cartDTO, 24, TimeUnit.HOURS);
+
+        return cartDTO;
     }
 
     @Override
@@ -101,51 +112,62 @@ public class CartServiceImpl implements CartService {
             throw new IllegalArgumentException("Quantity must be greater than 0");
         }
 
-        Cart cart = getOrCreateCart();
-        Product product = productMapper.findById(productId);
-        if (product == null) {
-            throw new ResourceNotFoundException("Product not found with id: " + productId);
-        }
+        User user = getCurrentUser();
+        String lockKey = "cart:lock:" + user.getId();
+        String lockValue = String.valueOf(System.currentTimeMillis());
 
-        // 检查库存
-        if (product.getStock() < quantity) {
-            throw new IllegalArgumentException("Insufficient stock for product: " + product.getName());
-        }
+        try {
+            boolean locked = redisUtil.tryLock(lockKey, lockValue, 10, TimeUnit.SECONDS);
+            if (!locked) {
+                throw new RuntimeException("购物车操作频繁，请稍后再试");
+            }
 
-        // 检查购物车中是否已存在该商品，确保cart.getId()不为null
-        Long cartId = cart.getId();
-        if (cartId == null) {
-            throw new IllegalStateException("Cart ID cannot be null");
-        }
-        CartItem existingCartItem = cartItemMapper.findByCartIdAndProductId(cartId, productId);
+            Cart cart = getOrCreateCart();
+            Product product = productMapper.findById(productId);
+            if (product == null) {
+                throw new ResourceNotFoundException("Product not found with id: " + productId);
+            }
 
-        if (existingCartItem != null) {
-            // 更新已有商品的数量
-            int newQuantity = existingCartItem.getQuantity() + quantity;
-
-            // 再次检查库存
-            if (product.getStock() < newQuantity) {
+            if (product.getStock() < quantity) {
                 throw new IllegalArgumentException("Insufficient stock for product: " + product.getName());
             }
 
-            existingCartItem.setQuantity(newQuantity);
-            existingCartItem.setUpdatedAt(java.time.LocalDateTime.now());
-            cartItemMapper.update(existingCartItem);
-        } else {
-            // 添加新商品到购物车
-            CartItem cartItem = new CartItem();
-            cartItem.setCart(cart);
-            cartItem.setProduct(product);
-            cartItem.setQuantity(quantity);
-            cartItem.setPrice(product.getPrice());
-            cartItem.setCreatedAt(java.time.LocalDateTime.now());
-            cartItem.setUpdatedAt(java.time.LocalDateTime.now());
-            cartItemMapper.insert(cartItem);
-        }
+            Long cartId = cart.getId();
+            if (cartId == null) {
+                throw new IllegalStateException("Cart ID cannot be null");
+            }
+            CartItem existingCartItem = cartItemMapper.findByCartIdAndProductId(cartId, productId);
 
-        cart.setUpdatedAt(java.time.LocalDateTime.now());
-        cartMapper.update(cart);
-        return mapToCartDTO(cart);
+            if (existingCartItem != null) {
+                int newQuantity = existingCartItem.getQuantity() + quantity;
+                if (product.getStock() < newQuantity) {
+                    throw new IllegalArgumentException("Insufficient stock for product: " + product.getName());
+                }
+                existingCartItem.setQuantity(newQuantity);
+                existingCartItem.setUpdatedAt(java.time.LocalDateTime.now());
+                cartItemMapper.update(existingCartItem);
+            } else {
+                CartItem cartItem = new CartItem();
+                cartItem.setCart(cart);
+                cartItem.setProduct(product);
+                cartItem.setQuantity(quantity);
+                cartItem.setPrice(product.getPrice());
+                cartItem.setCreatedAt(java.time.LocalDateTime.now());
+                cartItem.setUpdatedAt(java.time.LocalDateTime.now());
+                cartItemMapper.insert(cartItem);
+            }
+
+            cart.setUpdatedAt(java.time.LocalDateTime.now());
+            cartMapper.update(cart);
+
+            String cacheKey = CART_CACHE_KEY_PREFIX + user.getId();
+            CartDTO cartDTO = mapToCartDTO(cart);
+            redisUtil.set(cacheKey, cartDTO, 24, TimeUnit.HOURS);
+
+            return cartDTO;
+        } finally {
+            redisUtil.unlock(lockKey, lockValue);
+        }
     }
 
     @Override
