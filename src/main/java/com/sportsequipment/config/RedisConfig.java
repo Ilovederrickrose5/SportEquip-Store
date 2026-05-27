@@ -19,6 +19,7 @@ import java.util.Map;
 
 @Configuration
 @EnableCaching
+@SuppressWarnings("unchecked")
 public class RedisConfig {
 
     @Bean
@@ -50,7 +51,7 @@ public class RedisConfig {
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
         RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
-                .entryTtl(Duration.ofMinutes(Long.parseLong("5")))
+                .entryTtl(Duration.ofMinutes(5L))
                 .serializeKeysWith(
                         RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
                 .serializeValuesWith(RedisSerializationContext.SerializationPair
@@ -58,8 +59,8 @@ public class RedisConfig {
                 .disableCachingNullValues();
 
         Map<String, RedisCacheConfiguration> cacheConfigurations = new HashMap<>();
-        cacheConfigurations.put("product:list", defaultConfig.entryTtl(Duration.ofMinutes(Long.parseLong("30"))));
-        cacheConfigurations.put("category:list", defaultConfig.entryTtl(Duration.ofMinutes(Long.parseLong("60"))));
+        cacheConfigurations.put("product:list", defaultConfig.entryTtl(Duration.ofMinutes(30L)));
+        cacheConfigurations.put("category:list", defaultConfig.entryTtl(Duration.ofMinutes(60L)));
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)

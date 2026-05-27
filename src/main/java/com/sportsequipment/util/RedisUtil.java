@@ -1,42 +1,56 @@
 package com.sportsequipment.util;
 
+import org.redisson.api.RBucket;
+import org.redisson.api.RKeys;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
-import java.util.HashSet;
-import java.util.Objects;
+import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 @Component
 public class RedisUtil {
 
-    private final RedisTemplate<String, Object> objectRedisTemplate;
+    private final RedissonClient redissonClient;
     private final StringRedisTemplate stringRedisTemplate;
+    private final RedisTemplate<String, Object> redisTemplate;
 
-    public RedisUtil(RedisTemplate<String, Object> objectRedisTemplate, StringRedisTemplate stringRedisTemplate) {
-        this.objectRedisTemplate = Objects.requireNonNull(objectRedisTemplate, "objectRedisTemplate must not be null");
-        this.stringRedisTemplate = Objects.requireNonNull(stringRedisTemplate, "stringRedisTemplate must not be null");
+    public RedisUtil(RedissonClient redissonClient,
+            StringRedisTemplate stringRedisTemplate,
+            RedisTemplate<String, Object> redisTemplate) {
+        this.redissonClient = redissonClient;
+        this.stringRedisTemplate = stringRedisTemplate;
+        this.redisTemplate = redisTemplate;
     }
 
     public void set(String key, Object value) {
         validateKey(key);
-        objectRedisTemplate.opsForValue().set(key, value);
+        RBucket<Object> bucket = redissonClient.getBucket(key);
+        bucket.set(value);
     }
 
     public void set(String key, Object value, long timeout, TimeUnit unit) {
         validateKey(key);
         validateTimeout(timeout);
-        Objects.requireNonNull(unit, "TimeUnit must not be null");
-        final TimeUnit finalUnit = unit;
-        objectRedisTemplate.opsForValue().set(key, value, timeout, finalUnit);
+        RBucket<Object> bucket = redissonClient.getBucket(key);
+        bucket.set(value, timeout, unit);
+    }
+
+    public void set(String key, Object value, Duration duration) {
+        validateKey(key);
+        RBucket<Object> bucket = redissonClient.getBucket(key);
+        bucket.set(value, duration);
     }
 
     @SuppressWarnings("unchecked")
     public <T> T get(String key, Class<T> clazz) {
         validateKey(key);
-        Object value = objectRedisTemplate.opsForValue().get(key);
+        RBucket<Object> bucket = redissonClient.getBucket(key);
+        Object value = bucket.get();
         if (value == null) {
             return null;
         }
@@ -45,80 +59,87 @@ public class RedisUtil {
 
     public Object get(String key) {
         validateKey(key);
-        return objectRedisTemplate.opsForValue().get(key);
+        RBucket<Object> bucket = redissonClient.getBucket(key);
+        return bucket.get();
     }
 
     public boolean delete(String key) {
         validateKey(key);
-        Boolean result = objectRedisTemplate.delete(key);
-        return Boolean.TRUE.equals(result);
+        return redissonClient.getBucket(key).delete();
     }
 
     public boolean hasKey(String key) {
         validateKey(key);
-        Boolean result = objectRedisTemplate.hasKey(key);
-        return Boolean.TRUE.equals(result);
+        return redissonClient.getBucket(key).isExists();
     }
 
     public boolean expire(String key, long timeout, TimeUnit unit) {
         validateKey(key);
         validateTimeout(timeout);
-        Objects.requireNonNull(unit, "TimeUnit must not be null");
-        final TimeUnit finalUnit = unit;
-        Boolean result = objectRedisTemplate.expire(key, timeout, finalUnit);
-        return Boolean.TRUE.equals(result);
+        return redissonClient.getBucket(key).expire(timeout, unit);
+    }
+
+    public boolean expire(String key, Duration duration) {
+        validateKey(key);
+        return redissonClient.getBucket(key).expire(duration);
     }
 
     public long getExpire(String key) {
         validateKey(key);
-        Long result = objectRedisTemplate.getExpire(key);
-        return result != null ? result : 0L;
+        Long ttl = redissonClient.getBucket(key).remainTimeToLive();
+        return ttl != null ? ttl : 0L;
     }
 
-    @SuppressWarnings("unchecked")
     public void deletePattern(String pattern) {
         validateKey(pattern);
-        Set<String> keys = new HashSet<>();
-        Set<?> rawKeys = objectRedisTemplate.keys(pattern);
-        if (rawKeys != null) {
-            for (Object key : rawKeys) {
-                keys.add(String.valueOf(key));
-            }
-        }
-        if (!keys.isEmpty()) {
-            objectRedisTemplate.delete(keys);
+        RKeys keys = redissonClient.getKeys();
+        Iterable<String> matchingKeys = keys.getKeysByPattern(pattern);
+        for (String key : matchingKeys) {
+            redissonClient.getBucket(key).delete();
         }
     }
 
-    public boolean tryLock(String key, String value, long expireTime, TimeUnit unit) {
-        validateKey(key);
-        validateValue(value);
-        validateTimeout(expireTime);
-        Objects.requireNonNull(unit, "TimeUnit must not be null");
-        final TimeUnit finalUnit = unit;
-        Boolean result = stringRedisTemplate.opsForValue().setIfAbsent(key, value, expireTime, finalUnit);
-        return Boolean.TRUE.equals(result);
+    public Set<String> keys(String pattern) {
+        validateKey(pattern);
+        return redissonClient.getKeys().getKeys(pattern);
     }
 
-    public boolean unlock(String key, String value) {
+    public RLock getLock(String key) {
         validateKey(key);
-        validateValue(value);
-        String currentValue = stringRedisTemplate.opsForValue().get(key);
-        if (value.equals(currentValue)) {
-            return Boolean.TRUE.equals(stringRedisTemplate.delete(key));
+        return redissonClient.getLock(key);
+    }
+
+    public boolean tryLock(String key, long waitTime, long leaseTime, TimeUnit unit) {
+        validateKey(key);
+        try {
+            return redissonClient.getLock(key).tryLock(waitTime, leaseTime, unit);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
         }
-        return false;
+    }
+
+    public void unlock(String key) {
+        validateKey(key);
+        RLock lock = redissonClient.getLock(key);
+        if (lock.isHeldByCurrentThread()) {
+            lock.unlock();
+        }
+    }
+
+    public void lock(String key) {
+        validateKey(key);
+        redissonClient.getLock(key).lock();
+    }
+
+    public void lock(String key, long leaseTime, TimeUnit unit) {
+        validateKey(key);
+        redissonClient.getLock(key).lock(leaseTime, unit);
     }
 
     private void validateKey(String key) {
         if (key == null || key.trim().isEmpty()) {
             throw new IllegalArgumentException("Redis key cannot be null or empty");
-        }
-    }
-
-    private void validateValue(String value) {
-        if (value == null || value.trim().isEmpty()) {
-            throw new IllegalArgumentException("Redis value cannot be null or empty");
         }
     }
 
