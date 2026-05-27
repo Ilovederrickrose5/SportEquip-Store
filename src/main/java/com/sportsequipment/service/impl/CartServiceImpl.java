@@ -13,6 +13,7 @@ import com.sportsequipment.mapper.ProductMapper;
 import com.sportsequipment.mapper.UserMapper;
 import com.sportsequipment.security.UserDetailsImpl;
 import com.sportsequipment.service.CartService;
+import com.sportsequipment.util.RedisUtil;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -40,6 +42,11 @@ public class CartServiceImpl implements CartService {
 
     @Autowired
     private ProductMapper productMapper;
+
+    @Autowired
+    private RedisUtil redisUtil;
+
+    private static final String CART_CACHE_KEY_PREFIX = "cart:user:";
 
     /**
      * 获取当前用户

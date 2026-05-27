@@ -106,6 +106,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional
+    @CacheEvict(value = { "category:list", "category:main", "category:sub", "category:third" }, allEntries = true)
     public SubCategory createSubCategory(Long mainCategoryId, SubCategory subCategory) {
         MainCategory mainCategory = getMainCategoryById(mainCategoryId);
         subCategory.setMainCategory(mainCategory);
@@ -117,6 +118,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional
+    @CacheEvict(value = { "category:list", "category:main", "category:sub", "category:third" }, allEntries = true)
     public ThirdCategory createThirdCategory(Long subCategoryId, ThirdCategory thirdCategory) {
         SubCategory subCategory = getSubCategoryById(subCategoryId);
         thirdCategory.setSubCategory(subCategory);
@@ -128,6 +130,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional
+    @CacheEvict(value = { "category:list", "category:main", "category:sub", "category:third" }, allEntries = true)
     public MainCategory updateMainCategory(Long id, MainCategory mainCategory) {
         MainCategory existingMainCategory = getMainCategoryById(id);
         existingMainCategory.setName(mainCategory.getName());
@@ -139,6 +142,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional
+    @CacheEvict(value = { "category:list", "category:main", "category:sub", "category:third" }, allEntries = true)
     public SubCategory updateSubCategory(Long id, SubCategory subCategory) {
         SubCategory existingSubCategory = getSubCategoryById(id);
         existingSubCategory.setName(subCategory.getName());
@@ -150,6 +154,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional
+    @CacheEvict(value = { "category:list", "category:main", "category:sub", "category:third" }, allEntries = true)
     public ThirdCategory updateThirdCategory(Long id, ThirdCategory thirdCategory) {
         ThirdCategory existingThirdCategory = getThirdCategoryById(id);
         existingThirdCategory.setName(thirdCategory.getName());
@@ -161,6 +166,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional
+    @CacheEvict(value = { "category:list", "category:main", "category:sub", "category:third" }, allEntries = true)
     public void deleteMainCategory(Long id) {
         getMainCategoryById(id);
         mainCategoryMapper.deleteById(id);
@@ -168,6 +174,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional
+    @CacheEvict(value = { "category:list", "category:main", "category:sub", "category:third" }, allEntries = true)
     public void deleteSubCategory(Long id) {
         getSubCategoryById(id);
         subCategoryMapper.deleteById(id);
@@ -175,6 +182,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional
+    @CacheEvict(value = { "category:list", "category:main", "category:sub", "category:third" }, allEntries = true)
     public void deleteThirdCategory(Long id) {
         getThirdCategoryById(id);
         thirdCategoryMapper.deleteById(id);
