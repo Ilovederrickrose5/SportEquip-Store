@@ -8,6 +8,7 @@ import java.util.Collection;
 import java.util.concurrent.TimeUnit;
 
 @Component
+@SuppressWarnings("unchecked")
 public class RedisUtil {
 
     @Autowired
