@@ -14,7 +14,6 @@ import com.sportsequipment.mapper.UserMapper;
 import com.sportsequipment.security.UserDetailsImpl;
 import com.sportsequipment.service.CartService;
 import com.sportsequipment.util.RedisUtil;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -25,9 +24,6 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-/**
- * 购物车服务实现类
- */
 @Service
 public class CartServiceImpl implements CartService {
 
@@ -48,14 +44,10 @@ public class CartServiceImpl implements CartService {
 
     private static final String CART_CACHE_KEY_PREFIX = "cart:user:";
 
-    /**
-     * 获取当前用户
-     */
     private User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
 
-        // 确保userDetails.getId()不为null
         Long userId = userDetails.getId();
         if (userId == null) {
             throw new IllegalArgumentException("User ID cannot be null");
@@ -68,12 +60,8 @@ public class CartServiceImpl implements CartService {
         return user;
     }
 
-    /**
-     * 获取或创建当前用户的购物车
-     */
     private Cart getOrCreateCart() {
         User user = getCurrentUser();
-        // 检查购物车是否存在
         Cart cart = cartMapper.findByUserId(user.getId());
 
         if (cart == null) {
@@ -193,14 +181,12 @@ public class CartServiceImpl implements CartService {
                 throw new ResourceNotFoundException("Cart item not found with id: " + cartItemId);
             }
 
-            // 检查购物车项是否属于当前用户的购物车，确保 ID 不为 null
             Long cartItemCartId = cartItem.getCart().getId();
             Long currentCartId = cart.getId();
             if (cartItemCartId == null || currentCartId == null || !cartItemCartId.equals(currentCartId)) {
                 throw new SecurityException("Access denied");
             }
 
-            // 检查库存
             Product product = cartItem.getProduct();
             if (product.getStock() < quantity) {
                 throw new IllegalArgumentException("Insufficient stock for product: " + product.getName());
@@ -263,18 +249,18 @@ public class CartServiceImpl implements CartService {
         User user = getCurrentUser();
         String lockKey = "cart:lock:" + user.getId();
         String lockValue = String.valueOf(System.currentTimeMillis());
-        
+
         try {
             boolean locked = redisUtil.tryLock(lockKey, lockValue, 10, TimeUnit.SECONDS);
             if (!locked) {
                 throw new RuntimeException("购物车操作频繁，请稍后再试");
             }
-            
+
             Cart cart = getOrCreateCart();
             cartItemMapper.deleteByCartId(cart.getId());
             cart.setUpdatedAt(java.time.LocalDateTime.now());
             cartMapper.update(cart);
-            
+
             String cacheKey = CART_CACHE_KEY_PREFIX + user.getId();
             redisUtil.delete(cacheKey);
         } finally {
@@ -291,9 +277,6 @@ public class CartServiceImpl implements CartService {
                 .sum();
     }
 
-    /**
-     * 将Cart实体转换为CartDTO
-     */
     private CartDTO mapToCartDTO(Cart cart) {
         CartDTO cartDTO = new CartDTO();
         cartDTO.setId(cart.getId());
@@ -311,9 +294,6 @@ public class CartServiceImpl implements CartService {
         return cartDTO;
     }
 
-    /**
-     * 将CartItem实体转换为CartItemDTO
-     */
     private CartItemDTO mapToCartItemDTO(CartItem cartItem) {
         CartItemDTO cartItemDTO = new CartItemDTO();
         cartItemDTO.setId(cartItem.getId());
@@ -322,7 +302,6 @@ public class CartServiceImpl implements CartService {
         cartItemDTO.setImageUrl(cartItem.getProduct().getImageUrl());
         cartItemDTO.setQuantity(cartItem.getQuantity());
         cartItemDTO.setPrice(cartItem.getPrice());
-        cartItemDTO.setItemTotal(cartItem.getItemTotal());
 
         return cartItemDTO;
     }
