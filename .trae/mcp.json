@@ -18,6 +18,14 @@
       "args": [
         "@modelcontextprotocol/server-filesystem"
       ]
+    },
+    "codegraph": {
+      "command": "codegraph",
+      "args": [
+        "serve",
+        "--mcp"
+      ],
+      "cwd": "${workspaceFolder}"
     }
   }
 }
