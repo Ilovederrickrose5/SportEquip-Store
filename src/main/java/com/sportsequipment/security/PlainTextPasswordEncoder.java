@@ -1,7 +1,6 @@
 package com.sportsequipment.security;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Component;
 
 /**
  * 明文密码编码器 - 仅用于测试环境
@@ -9,7 +8,6 @@ import org.springframework.stereotype.Component;
  * <p>注意：此编码器不进行任何加密，直接比较明文密码。
  * 生产环境请使用 BCryptPasswordEncoder。</p>
  */
-@Component
 public class PlainTextPasswordEncoder implements PasswordEncoder {
 
     @Override
