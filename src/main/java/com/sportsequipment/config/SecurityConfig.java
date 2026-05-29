@@ -17,7 +17,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 
 /**
  * Security配置类，处理认证和授权相关配置
