@@ -440,6 +440,33 @@
       this.currentPage = 1;
     },
     
+    // 检查登录状态
+    checkLoginStatus() {
+      return !!localStorage.getItem('token');
+    },
+    
+    // 显示登录提示弹窗
+    async showLoginModal() {
+      try {
+        await this.$confirm(
+          '请先登录才能查看商品详情和进行购物操作', 
+          '提示', 
+          {
+            confirmButtonText: '去登录',
+            cancelButtonText: '返回首页',
+            type: 'info',
+            showClose: false,
+            center: true
+          }
+        );
+        // 用户点击"去登录"
+        this.$router.push('/login');
+      } catch (error) {
+        // 用户点击"返回首页"或取消
+        this.$router.push('/');
+      }
+    },
+    
     // 模拟API响应（作为兜底）
     simulateApiResponse() {
       // 使用数据库中已有的分类数据
@@ -596,7 +623,13 @@
   },
   
   // 组件挂载时加载数据
-  mounted() {
+  async mounted() {
+    // 检查登录状态
+    if (!this.checkLoginStatus()) {
+      await this.showLoginModal();
+      // 如果用户取消登录，直接返回，不加载数据
+      return;
+    }
     // 组件挂载后自动加载数据
     this.loadData();
   }

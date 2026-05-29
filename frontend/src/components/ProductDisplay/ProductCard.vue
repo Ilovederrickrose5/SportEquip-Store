@@ -22,7 +22,39 @@ export default {
     }
   },
   methods: {
-    addToCart() {
+    // 检查登录状态
+    checkLoginStatus() {
+      return !!localStorage.getItem('token');
+    },
+    
+    // 显示登录提示弹窗
+    async showLoginModal() {
+      try {
+        await this.$confirm(
+          '请先登录才能进行购物操作', 
+          '提示', 
+          {
+            confirmButtonText: '去登录',
+            cancelButtonText: '返回首页',
+            type: 'info',
+            showClose: false,
+            center: true
+          }
+        );
+        // 用户点击"去登录"
+        this.$router.push('/login');
+      } catch (error) {
+        // 用户点击"返回首页"或取消
+        this.$router.push('/');
+      }
+    },
+    
+    async addToCart() {
+      // 检查登录状态
+      if (!this.checkLoginStatus()) {
+        await this.showLoginModal();
+        return;
+      }
       this.$emit('add-to-cart', this.product.id, 1);
     }
   }
