@@ -22,15 +22,15 @@ public class AddressServiceImpl implements AddressService {
     @Override
     public Address createAddress(Address address) {
         // 如果这是用户的第一个地址，自动设为默认地址
-        if (address.getUser() != null) {
-            List<Address> userAddresses = addressMapper.findByUserId(address.getUser().getId());
+        if (address.getUserId() != null) {
+            List<Address> userAddresses = addressMapper.findByUserId(address.getUserId());
             if (userAddresses.isEmpty()) {
                 address.setDefault(true);
             }
         }
         // 如果用户设置了新地址为默认，先取消其他地址的默认状态
-        if (address.isDefault() && address.getUser() != null) {
-            cancelDefaultAddresses(address.getUser().getId());
+        if (address.isDefault() && address.getUserId() != null) {
+            cancelDefaultAddresses(address.getUserId());
         }
         address.setCreatedAt(LocalDateTime.now());
         address.setUpdatedAt(LocalDateTime.now());
@@ -43,8 +43,8 @@ public class AddressServiceImpl implements AddressService {
         Address existingAddress = getAddressById(id);
 
         // 验证用户是否有权限修改此地址
-        if (existingAddress.getUser() == null || address.getUser() == null ||
-                !existingAddress.getUser().getId().equals(address.getUser().getId())) {
+        if (existingAddress.getUserId() == null || address.getUserId() == null ||
+                !existingAddress.getUserId().equals(address.getUserId())) {
             throw new SecurityException("You are not authorized to update this address");
         }
 
@@ -54,8 +54,8 @@ public class AddressServiceImpl implements AddressService {
         existingAddress.setUpdatedAt(LocalDateTime.now());
 
         // 如果设置为默认地址，先取消其他地址的默认状态
-        if (address.isDefault() && !existingAddress.isDefault() && address.getUser() != null) {
-            cancelDefaultAddresses(address.getUser().getId());
+        if (address.isDefault() && !existingAddress.isDefault() && address.getUserId() != null) {
+            cancelDefaultAddresses(address.getUserId());
             existingAddress.setDefault(true);
         }
         // 如果取消默认地址，不做任何处理
@@ -103,7 +103,7 @@ public class AddressServiceImpl implements AddressService {
         cancelDefaultAddresses(userId);
         // 然后将指定地址设为默认
         Address address = getAddressById(id);
-        if (address.getUser() == null || !address.getUser().getId().equals(userId)) {
+        if (address.getUserId() == null || !address.getUserId().equals(userId)) {
             throw new SecurityException("You are not authorized to set this address as default");
         }
         address.setDefault(true);

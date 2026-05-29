@@ -66,11 +66,10 @@ public class OrderServiceImpl implements OrderService {
         }
 
         // 检查权限
-        User user = order.getUser();
-        if (user == null) {
+        if (order.getUserId() == null) {
             throw new IllegalStateException("Order user cannot be null");
         }
-        checkOrderAccess(user.getId());
+        checkOrderAccess(order.getUserId());
 
         return mapToOrderDTO(order);
     }
@@ -229,8 +228,10 @@ public class OrderServiceImpl implements OrderService {
     private OrderDTO mapToOrderDTO(Order order) {
         OrderDTO orderDTO = new OrderDTO();
         orderDTO.setId(order.getId());
-        orderDTO.setUserId(order.getUser().getId());
-        orderDTO.setUsername(order.getUser().getUsername());
+        // 直接使用 userId 字段，避免 getUser() 为 null 的问题
+        orderDTO.setUserId(order.getUserId());
+        // 从当前用户获取 username，避免依赖 order.getUser()
+        orderDTO.setUsername(getCurrentUsername());
         orderDTO.setTotalAmount(order.getTotalAmount());
         orderDTO.setStatus(order.getStatus());
         orderDTO.setShippingAddress(order.getShippingAddress());
@@ -239,9 +240,9 @@ public class OrderServiceImpl implements OrderService {
         orderDTO.setPhone(order.getPhone());
         // 从订单实体中获取支付方式
         orderDTO.setPaymentMethod(order.getPaymentMethod());
-        // 从订单实体中获取收货人姓名，如果为null则使用用户名
+        // 从订单实体中获取收货人姓名，如果为null则使用当前用户名
         orderDTO.setRecipientName(
-                order.getRecipientName() != null ? order.getRecipientName() : order.getUser().getUsername());
+                order.getRecipientName() != null ? order.getRecipientName() : getCurrentUsername());
         // 从订单实体中获取订单备注
         orderDTO.setRemark(order.getRemark());
         orderDTO.setCreatedAt(order.getCreatedAt());
@@ -253,6 +254,13 @@ public class OrderServiceImpl implements OrderService {
                         .collect(Collectors.toList()));
 
         return orderDTO;
+    }
+
+    // 获取当前用户的用户名
+    private String getCurrentUsername() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+        return userDetails.getUsername();
     }
 
     private OrderItemDTO mapToOrderItemDTO(OrderItem orderItem) {

@@ -84,7 +84,7 @@ public class AddressController {
         User user = userService.findByUsername(username);
 
         Address address = addressService.getAddressById(id);
-        if (address.getUser() == null || !address.getUser().getId().equals(user.getId())) {
+        if (address.getUserId() == null || !address.getUserId().equals(user.getId())) {
             return ResponseEntity.status(403).body("You are not authorized to delete this address");
         }
 

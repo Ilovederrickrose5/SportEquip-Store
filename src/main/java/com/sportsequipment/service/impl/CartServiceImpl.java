@@ -276,8 +276,10 @@ public class CartServiceImpl implements CartService {
     private CartDTO mapToCartDTO(Cart cart) {
         CartDTO cartDTO = new CartDTO();
         cartDTO.setId(cart.getId());
-        cartDTO.setUserId(cart.getUser().getId());
-        cartDTO.setUsername(cart.getUser().getUsername());
+        // 直接使用 userId 字段，避免 getUser() 为 null 的问题
+        cartDTO.setUserId(cart.getUserId());
+        // 从当前用户获取 username，避免依赖 cart.getUser()
+        cartDTO.setUsername(getCurrentUser().getUsername());
         cartDTO.setCreatedAt(cart.getCreatedAt());
         cartDTO.setUpdatedAt(cart.getUpdatedAt());
 
