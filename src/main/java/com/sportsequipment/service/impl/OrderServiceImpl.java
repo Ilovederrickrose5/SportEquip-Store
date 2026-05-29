@@ -266,9 +266,14 @@ public class OrderServiceImpl implements OrderService {
     private OrderItemDTO mapToOrderItemDTO(OrderItem orderItem) {
         OrderItemDTO orderItemDTO = new OrderItemDTO();
         orderItemDTO.setId(orderItem.getId());
-        orderItemDTO.setOrderId(orderItem.getOrder().getId());
-        orderItemDTO.setProductId(orderItem.getProduct().getId());
-        orderItemDTO.setProductName(orderItem.getProduct().getName());
+        // 直接使用 orderId 和 productId 字段，避免关联对象为 null 的问题
+        orderItemDTO.setOrderId(orderItem.getOrderId());
+        orderItemDTO.setProductId(orderItem.getProductId());
+        
+        // 查询商品名称
+        Product product = productMapper.findById(orderItem.getProductId());
+        orderItemDTO.setProductName(product != null ? product.getName() : "未知商品");
+        
         orderItemDTO.setQuantity(orderItem.getQuantity());
         orderItemDTO.setPrice(orderItem.getPrice());
         return orderItemDTO;

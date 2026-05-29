@@ -95,9 +95,10 @@ public class FavoriteServiceImpl implements FavoriteService {
         // 获取收藏的产品信息并转换为DTO
         return favorites.stream()
                 .map(favorite -> {
-                    Product product = favorite.getProduct();
+                    // 直接使用 productId 字段查询商品，避免 getProduct() 为 null 的问题
+                    Product product = productMapper.findById(favorite.getProductId());
                     if (product == null) {
-                        throw new ResourceNotFoundException("Product not found");
+                        throw new ResourceNotFoundException("Product not found with id: " + favorite.getProductId());
                     }
                     return mapToProductDTO(product);
                 })

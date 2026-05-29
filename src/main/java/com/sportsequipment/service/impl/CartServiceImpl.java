@@ -179,13 +179,18 @@ public class CartServiceImpl implements CartService {
                 throw new ResourceNotFoundException("Cart item not found with id: " + cartItemId);
             }
 
-            Long cartItemCartId = cartItem.getCart().getId();
+            // 直接使用 cartId 字段，避免 getCart() 为 null 的问题
+            Long cartItemCartId = cartItem.getCartId();
             Long currentCartId = cart.getId();
             if (cartItemCartId == null || currentCartId == null || !cartItemCartId.equals(currentCartId)) {
                 throw new SecurityException("Access denied");
             }
 
-            Product product = cartItem.getProduct();
+            // 查询商品信息
+            Product product = productMapper.findById(cartItem.getProductId());
+            if (product == null) {
+                throw new ResourceNotFoundException("Product not found with id: " + cartItem.getProductId());
+            }
             if (product.getStock() < quantity) {
                 throw new IllegalArgumentException("Insufficient stock for product: " + product.getName());
             }
@@ -222,7 +227,8 @@ public class CartServiceImpl implements CartService {
                 throw new ResourceNotFoundException("Cart item not found with id: " + cartItemId);
             }
 
-            Long cartItemCartId = cartItem.getCart().getId();
+            // 直接使用 cartId 字段，避免 getCart() 为 null 的问题
+            Long cartItemCartId = cartItem.getCartId();
             Long currentCartId = cart.getId();
             if (cartItemCartId == null || currentCartId == null || !cartItemCartId.equals(currentCartId)) {
                 throw new SecurityException("Access denied");
@@ -295,9 +301,19 @@ public class CartServiceImpl implements CartService {
     private CartItemDTO mapToCartItemDTO(CartItem cartItem) {
         CartItemDTO cartItemDTO = new CartItemDTO();
         cartItemDTO.setId(cartItem.getId());
-        cartItemDTO.setProductId(cartItem.getProduct().getId());
-        cartItemDTO.setProductName(cartItem.getProduct().getName());
-        cartItemDTO.setImageUrl(cartItem.getProduct().getImageUrl());
+        // 直接使用 productId 字段，避免 getProduct() 为 null 的问题
+        cartItemDTO.setProductId(cartItem.getProductId());
+
+        // 查询商品信息
+        Product product = productMapper.findById(cartItem.getProductId());
+        if (product != null) {
+            cartItemDTO.setProductName(product.getName());
+            cartItemDTO.setImageUrl(product.getImageUrl());
+        } else {
+            cartItemDTO.setProductName("未知商品");
+            cartItemDTO.setImageUrl(null);
+        }
+
         cartItemDTO.setQuantity(cartItem.getQuantity());
         cartItemDTO.setPrice(cartItem.getPrice());
 

@@ -176,7 +176,8 @@ public class ReviewServiceImpl implements ReviewService {
                     || order.getStatus().equals("DELIVERED")) {
                 List<OrderItem> orderItems = orderItemMapper.findByOrderId(order.getId());
                 for (OrderItem item : orderItems) {
-                    if (item.getProduct().getId().equals(productId)) {
+                    // 直接使用 productId 字段，避免 getProduct() 为 null 的问题
+                    if (productId.equals(item.getProductId())) {
                         return true;
                     }
                 }
