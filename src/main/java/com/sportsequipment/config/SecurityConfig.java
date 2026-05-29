@@ -12,6 +12,8 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
+import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -20,6 +22,8 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Security配置类，处理认证和授权相关配置
@@ -51,8 +55,16 @@ public class SecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        // 测试环境使用明文密码比较（生产环境请使用 BCryptPasswordEncoder）
-        return new com.sportsequipment.security.PlainTextPasswordEncoder();
+        // 使用 DelegatingPasswordEncoder 支持多种密码编码方式
+        Map<String, PasswordEncoder> encoders = new HashMap<>();
+        encoders.put("noop", NoOpPasswordEncoder.getInstance());
+        encoders.put("plain", new com.sportsequipment.security.PlainTextPasswordEncoder());
+
+        DelegatingPasswordEncoder delegatingEncoder = new DelegatingPasswordEncoder("noop", encoders);
+        // 设置默认编码器为 noop（明文），当密码没有前缀时使用
+        delegatingEncoder.setDefaultPasswordEncoderForMatches(NoOpPasswordEncoder.getInstance());
+
+        return delegatingEncoder;
     }
 
     @Bean
