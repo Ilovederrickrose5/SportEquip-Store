@@ -2,9 +2,6 @@
   <section class="search-section">
     <div class="container">
       <div class="search-container">
-        <div class="logo">
-          <h1 class="logo-title">🏆 专业运动装备，助力运动梦想</h1>
-        </div>
         <div class="search-bar">
           <input 
             type="text" 
