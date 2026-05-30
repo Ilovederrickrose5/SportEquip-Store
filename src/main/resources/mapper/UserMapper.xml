@@ -1,45 +1,72 @@
+
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 
+    用户表 Mapper XML
+    对应接口：com.sportsequipment.mapper.UserMapper
+    数据库表：user
+-->
 <mapper namespace="com.sportsequipment.mapper.UserMapper">
 
+    <!-- 根据ID查询用户 -->
     <select id="findById" resultType="User">
         SELECT * FROM user WHERE id = #{id}
     </select>
 
+    <!-- 查询所有用户 -->
     <select id="findAll" resultType="User">
         SELECT * FROM user
     </select>
 
+    <!-- 插入新用户（注册） -->
     <insert id="insert" parameterType="User">
-        INSERT INTO user (username, email, password, phone, address, avatar, role, created_at, updated_at)
-        VALUES (#{username}, #{email}, #{password}, #{phone}, #{address}, #{avatar}, #{role}, #{createdAt}, #{updatedAt})
+        INSERT INTO user (
+            username,   <!-- 用户名 -->
+            email,      <!-- 邮箱 -->
+            password,   <!-- 密码（已加密） -->
+            phone,      <!-- 手机号 -->
+            address,    <!-- 地址 -->
+            avatar,     <!-- 头像URL -->
+            role,       <!-- 角色：USER/ADMIN -->
+            created_at, <!-- 创建时间 -->
+            updated_at  <!-- 更新时间 -->
+        ) VALUES (
+            #{username}, #{email}, #{password}, #{phone}, 
+            #{address}, #{avatar}, #{role}, #{createdAt}, #{updatedAt}
+        )
     </insert>
 
+    <!-- 更新用户信息 -->
     <update id="update" parameterType="User">
         UPDATE user SET
-        username = #{username},
-        email = #{email},
-        password = #{password},
-        phone = #{phone},
-        address = #{address},
-        avatar = #{avatar},
-        role = #{role},
-        updated_at = #{updatedAt}
+            username = #{username},
+            email = #{email},
+            password = #{password},
+            phone = #{phone},
+            address = #{address},
+            avatar = #{avatar},
+            role = #{role},
+            updated_at = #{updatedAt}
         WHERE id = #{id}
     </update>
 
+    <!-- 根据ID删除用户 -->
     <delete id="deleteById" parameterType="Long">
         DELETE FROM user WHERE id = #{id}
     </delete>
 
+    <!-- 根据用户名查询（登录验证） -->
     <select id="findByUsername" resultType="User">
         SELECT * FROM user WHERE username = #{username}
     </select>
 
+    <!-- 检查用户名是否存在（注册校验） -->
     <select id="existsByUsername" resultType="Integer">
         SELECT COUNT(*) FROM user WHERE username = #{username}
     </select>
 
+    <!-- 检查邮箱是否已被使用 -->
     <select id="existsByEmail" resultType="Integer">
         SELECT COUNT(*) FROM user WHERE email = #{email}
     </select>

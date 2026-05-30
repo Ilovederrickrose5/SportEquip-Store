@@ -1,7 +1,26 @@
+
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 
+    订单表 Mapper XML
+    对应接口：com.sportsequipment.mapper.OrderMapper
+    数据库表：order（注意：order是MySQL关键字，需要用反引号包裹）
+    
+    订单状态说明：
+    - PENDING: 待支付
+    - PAID: 已支付
+    - SHIPPED: 已发货
+    - COMPLETED: 已完成
+    - CANCELLED: 已取消
+-->
 <mapper namespace="com.sportsequipment.mapper.OrderMapper">
 
+    <!-- 
+        订单结果映射
+        collection标签用于一对多关联查询（订单 -> 订单项）
+        select属性指定查询订单项的SQL
+    -->
     <resultMap id="OrderResultMap" type="Order">
         <id property="id" column="id"/>
         <result property="userId" column="user_id"/>
@@ -14,40 +33,64 @@
         <result property="remark" column="remark"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
+        <!-- 关联查询订单项 -->
         <collection property="orderItems" column="id" select="findOrderItemsByOrderId"/>
     </resultMap>
 
+    <!-- 根据ID查询订单（包含订单项） -->
     <select id="findById" resultMap="OrderResultMap">
         SELECT * FROM `order` WHERE id = #{id}
     </select>
 
+    <!-- 查询所有订单 -->
     <select id="findAll" resultMap="OrderResultMap">
         SELECT * FROM `order`
     </select>
 
+    <!-- 创建新订单 -->
     <insert id="insert" parameterType="Order">
-        INSERT INTO `order` (user_id, total_amount, status, shipping_address, phone, payment_method, recipient_name, remark, created_at, updated_at)
-        VALUES (#{userId}, #{totalAmount}, #{status}, #{shippingAddress}, #{phone}, #{paymentMethod}, #{recipientName}, #{remark}, #{createdAt}, #{updatedAt})
+        INSERT INTO `order` (
+            user_id,          <!-- 用户ID -->
+            total_amount,     <!-- 总金额 -->
+            status,           <!-- 订单状态 -->
+            shipping_address, <!-- 收货地址 -->
+            phone,            <!-- 联系电话 -->
+            payment_method,   <!-- 支付方式 -->
+            recipient_name,   <!-- 收货人姓名 -->
+            remark,           <!-- 备注 -->
+            created_at,       <!-- 创建时间 -->
+            updated_at        <!-- 更新时间 -->
+        ) VALUES (
+            #{userId}, #{totalAmount}, #{status}, #{shippingAddress},
+            #{phone}, #{paymentMethod}, #{recipientName}, #{remark},
+            #{createdAt}, #{updatedAt}
+        )
     </insert>
 
+    <!-- 更新订单信息 -->
     <update id="update" parameterType="Order">
         UPDATE `order` SET
-        user_id = #{userId},
-        total_amount = #{totalAmount},
-        status = #{status},
-        shipping_address = #{shippingAddress},
-        updated_at = #{updatedAt}
+            user_id = #{userId},
+            total_amount = #{totalAmount},
+            status = #{status},
+            shipping_address = #{shippingAddress},
+            updated_at = #{updatedAt}
         WHERE id = #{id}
     </update>
 
+    <!-- 根据ID删除订单 -->
     <delete id="deleteById" parameterType="Long">
         DELETE FROM `order` WHERE id = #{id}
     </delete>
 
+    <!-- 根据用户ID查询订单列表 -->
     <select id="findByUserId" resultMap="OrderResultMap">
         SELECT * FROM `order` WHERE user_id = #{userId}
     </select>
 
+    <!-- ============== 订单项相关（内部使用）============== -->
+    
+    <!-- 订单项结果映射 -->
     <resultMap id="OrderItemResultMap" type="OrderItem">
         <id property="id" column="id"/>
         <result property="orderId" column="order_id"/>
@@ -56,6 +99,7 @@
         <result property="price" column="price"/>
     </resultMap>
 
+    <!-- 根据订单ID查询订单项（被OrderResultMap调用） -->
     <select id="findOrderItemsByOrderId" resultMap="OrderItemResultMap">
         SELECT * FROM order_item WHERE order_id = #{orderId}
     </select>
