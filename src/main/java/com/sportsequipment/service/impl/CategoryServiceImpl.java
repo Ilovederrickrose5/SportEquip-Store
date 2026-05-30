@@ -11,7 +11,7 @@ import com.sportsequipment.mapper.MainCategoryMapper;
 import com.sportsequipment.mapper.SubCategoryMapper;
 import com.sportsequipment.mapper.ThirdCategoryMapper;
 import com.sportsequipment.service.CategoryService;
-
+import com.sportsequipment.util.RedisUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,6 +34,12 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Autowired
     private ThirdCategoryMapper thirdCategoryMapper;
+
+    @Autowired
+    private RedisUtil redisUtil;
+
+    // 分类分布式锁键前缀（防止缓存击穿）
+    private static final String CATEGORY_LOCK_KEY_PREFIX = "lock:category:";
 
     @Override
     @Transactional(readOnly = true)
@@ -98,94 +105,184 @@ public class CategoryServiceImpl implements CategoryService {
     @Transactional
     @CacheEvict(value = { "category:list", "category:main", "category:sub", "category:third" }, allEntries = true)
     public MainCategory createMainCategory(MainCategory mainCategory) {
-        mainCategory.setCreatedAt(java.time.LocalDateTime.now());
-        mainCategory.setUpdatedAt(java.time.LocalDateTime.now());
-        mainCategoryMapper.insert(mainCategory);
-        return mainCategory;
+        // 分布式锁，防止缓存击穿
+        String lockKey = CATEGORY_LOCK_KEY_PREFIX + "main:create";
+        try {
+            boolean locked = redisUtil.tryLock(lockKey, 10, 30, TimeUnit.SECONDS);
+            if (!locked) {
+                throw new RuntimeException("系统繁忙，请稍后再试");
+            }
+            mainCategory.setCreatedAt(java.time.LocalDateTime.now());
+            mainCategory.setUpdatedAt(java.time.LocalDateTime.now());
+            mainCategoryMapper.insert(mainCategory);
+            return mainCategory;
+        } finally {
+            redisUtil.unlock(lockKey);
+        }
     }
 
     @Override
     @Transactional
     @CacheEvict(value = { "category:list", "category:main", "category:sub", "category:third" }, allEntries = true)
     public SubCategory createSubCategory(Long mainCategoryId, SubCategory subCategory) {
-        MainCategory mainCategory = getMainCategoryById(mainCategoryId);
-        subCategory.setMainCategory(mainCategory);
-        subCategory.setCreatedAt(java.time.LocalDateTime.now());
-        subCategory.setUpdatedAt(java.time.LocalDateTime.now());
-        subCategoryMapper.insert(subCategory);
-        return subCategory;
+        // 分布式锁，防止缓存击穿
+        String lockKey = CATEGORY_LOCK_KEY_PREFIX + "sub:create";
+        try {
+            boolean locked = redisUtil.tryLock(lockKey, 10, 30, TimeUnit.SECONDS);
+            if (!locked) {
+                throw new RuntimeException("系统繁忙，请稍后再试");
+            }
+            MainCategory mainCategory = getMainCategoryById(mainCategoryId);
+            subCategory.setMainCategory(mainCategory);
+            subCategory.setCreatedAt(java.time.LocalDateTime.now());
+            subCategory.setUpdatedAt(java.time.LocalDateTime.now());
+            subCategoryMapper.insert(subCategory);
+            return subCategory;
+        } finally {
+            redisUtil.unlock(lockKey);
+        }
     }
 
     @Override
     @Transactional
     @CacheEvict(value = { "category:list", "category:main", "category:sub", "category:third" }, allEntries = true)
     public ThirdCategory createThirdCategory(Long subCategoryId, ThirdCategory thirdCategory) {
-        SubCategory subCategory = getSubCategoryById(subCategoryId);
-        thirdCategory.setSubCategory(subCategory);
-        thirdCategory.setCreatedAt(java.time.LocalDateTime.now());
-        thirdCategory.setUpdatedAt(java.time.LocalDateTime.now());
-        thirdCategoryMapper.insert(thirdCategory);
-        return thirdCategory;
+        // 分布式锁，防止缓存击穿
+        String lockKey = CATEGORY_LOCK_KEY_PREFIX + "third:create";
+        try {
+            boolean locked = redisUtil.tryLock(lockKey, 10, 30, TimeUnit.SECONDS);
+            if (!locked) {
+                throw new RuntimeException("系统繁忙，请稍后再试");
+            }
+            SubCategory subCategory = getSubCategoryById(subCategoryId);
+            thirdCategory.setSubCategory(subCategory);
+            thirdCategory.setCreatedAt(java.time.LocalDateTime.now());
+            thirdCategory.setUpdatedAt(java.time.LocalDateTime.now());
+            thirdCategoryMapper.insert(thirdCategory);
+            return thirdCategory;
+        } finally {
+            redisUtil.unlock(lockKey);
+        }
     }
 
     @Override
     @Transactional
     @CacheEvict(value = { "category:list", "category:main", "category:sub", "category:third" }, allEntries = true)
     public MainCategory updateMainCategory(Long id, MainCategory mainCategory) {
-        MainCategory existingMainCategory = getMainCategoryById(id);
-        existingMainCategory.setName(mainCategory.getName());
-        existingMainCategory.setDescription(mainCategory.getDescription());
-        existingMainCategory.setUpdatedAt(java.time.LocalDateTime.now());
-        mainCategoryMapper.update(existingMainCategory);
-        return existingMainCategory;
+        // 分布式锁，防止缓存击穿（锁一级分类ID）
+        String lockKey = CATEGORY_LOCK_KEY_PREFIX + "main:" + id;
+        try {
+            boolean locked = redisUtil.tryLock(lockKey, 10, 30, TimeUnit.SECONDS);
+            if (!locked) {
+                throw new RuntimeException("系统繁忙，请稍后再试");
+            }
+            MainCategory existingMainCategory = getMainCategoryById(id);
+            existingMainCategory.setName(mainCategory.getName());
+            existingMainCategory.setDescription(mainCategory.getDescription());
+            existingMainCategory.setUpdatedAt(java.time.LocalDateTime.now());
+            mainCategoryMapper.update(existingMainCategory);
+            return existingMainCategory;
+        } finally {
+            redisUtil.unlock(lockKey);
+        }
     }
 
     @Override
     @Transactional
     @CacheEvict(value = { "category:list", "category:main", "category:sub", "category:third" }, allEntries = true)
     public SubCategory updateSubCategory(Long id, SubCategory subCategory) {
-        SubCategory existingSubCategory = getSubCategoryById(id);
-        existingSubCategory.setName(subCategory.getName());
-        existingSubCategory.setDescription(subCategory.getDescription());
-        existingSubCategory.setUpdatedAt(java.time.LocalDateTime.now());
-        subCategoryMapper.update(existingSubCategory);
-        return existingSubCategory;
+        // 分布式锁，防止缓存击穿（锁二级分类ID）
+        String lockKey = CATEGORY_LOCK_KEY_PREFIX + "sub:" + id;
+        try {
+            boolean locked = redisUtil.tryLock(lockKey, 10, 30, TimeUnit.SECONDS);
+            if (!locked) {
+                throw new RuntimeException("系统繁忙，请稍后再试");
+            }
+            SubCategory existingSubCategory = getSubCategoryById(id);
+            existingSubCategory.setName(subCategory.getName());
+            existingSubCategory.setDescription(subCategory.getDescription());
+            existingSubCategory.setUpdatedAt(java.time.LocalDateTime.now());
+            subCategoryMapper.update(existingSubCategory);
+            return existingSubCategory;
+        } finally {
+            redisUtil.unlock(lockKey);
+        }
     }
 
     @Override
     @Transactional
     @CacheEvict(value = { "category:list", "category:main", "category:sub", "category:third" }, allEntries = true)
     public ThirdCategory updateThirdCategory(Long id, ThirdCategory thirdCategory) {
-        ThirdCategory existingThirdCategory = getThirdCategoryById(id);
-        existingThirdCategory.setName(thirdCategory.getName());
-        existingThirdCategory.setDescription(thirdCategory.getDescription());
-        existingThirdCategory.setUpdatedAt(java.time.LocalDateTime.now());
-        thirdCategoryMapper.update(existingThirdCategory);
-        return existingThirdCategory;
+        // 分布式锁，防止缓存击穿（锁三级分类ID）
+        String lockKey = CATEGORY_LOCK_KEY_PREFIX + "third:" + id;
+        try {
+            boolean locked = redisUtil.tryLock(lockKey, 10, 30, TimeUnit.SECONDS);
+            if (!locked) {
+                throw new RuntimeException("系统繁忙，请稍后再试");
+            }
+            ThirdCategory existingThirdCategory = getThirdCategoryById(id);
+            existingThirdCategory.setName(thirdCategory.getName());
+            existingThirdCategory.setDescription(thirdCategory.getDescription());
+            existingThirdCategory.setUpdatedAt(java.time.LocalDateTime.now());
+            thirdCategoryMapper.update(existingThirdCategory);
+            return existingThirdCategory;
+        } finally {
+            redisUtil.unlock(lockKey);
+        }
     }
 
     @Override
     @Transactional
     @CacheEvict(value = { "category:list", "category:main", "category:sub", "category:third" }, allEntries = true)
     public void deleteMainCategory(Long id) {
-        getMainCategoryById(id);
-        mainCategoryMapper.deleteById(id);
+        // 分布式锁，防止缓存击穿（锁一级分类ID）
+        String lockKey = CATEGORY_LOCK_KEY_PREFIX + "main:" + id;
+        try {
+            boolean locked = redisUtil.tryLock(lockKey, 10, 30, TimeUnit.SECONDS);
+            if (!locked) {
+                throw new RuntimeException("系统繁忙，请稍后再试");
+            }
+            getMainCategoryById(id);
+            mainCategoryMapper.deleteById(id);
+        } finally {
+            redisUtil.unlock(lockKey);
+        }
     }
 
     @Override
     @Transactional
     @CacheEvict(value = { "category:list", "category:main", "category:sub", "category:third" }, allEntries = true)
     public void deleteSubCategory(Long id) {
-        getSubCategoryById(id);
-        subCategoryMapper.deleteById(id);
+        // 分布式锁，防止缓存击穿（锁二级分类ID）
+        String lockKey = CATEGORY_LOCK_KEY_PREFIX + "sub:" + id;
+        try {
+            boolean locked = redisUtil.tryLock(lockKey, 10, 30, TimeUnit.SECONDS);
+            if (!locked) {
+                throw new RuntimeException("系统繁忙，请稍后再试");
+            }
+            getSubCategoryById(id);
+            subCategoryMapper.deleteById(id);
+        } finally {
+            redisUtil.unlock(lockKey);
+        }
     }
 
     @Override
     @Transactional
     @CacheEvict(value = { "category:list", "category:main", "category:sub", "category:third" }, allEntries = true)
     public void deleteThirdCategory(Long id) {
-        getThirdCategoryById(id);
-        thirdCategoryMapper.deleteById(id);
+        // 分布式锁，防止缓存击穿（锁三级分类ID）
+        String lockKey = CATEGORY_LOCK_KEY_PREFIX + "third:" + id;
+        try {
+            boolean locked = redisUtil.tryLock(lockKey, 10, 30, TimeUnit.SECONDS);
+            if (!locked) {
+                throw new RuntimeException("系统繁忙，请稍后再试");
+            }
+            getThirdCategoryById(id);
+            thirdCategoryMapper.deleteById(id);
+        } finally {
+            redisUtil.unlock(lockKey);
+        }
     }
 
     // 映射方法

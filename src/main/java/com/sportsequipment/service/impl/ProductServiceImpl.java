@@ -11,13 +11,16 @@ import com.sportsequipment.mapper.ProductMapper;
 import com.sportsequipment.mapper.SubCategoryMapper;
 import com.sportsequipment.mapper.ThirdCategoryMapper;
 import com.sportsequipment.service.ProductService;
+import com.sportsequipment.util.RedisUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -34,6 +37,16 @@ public class ProductServiceImpl implements ProductService {
 
     @Autowired
     private MainCategoryMapper mainCategoryMapper;
+
+    @Autowired
+    private RedisUtil redisUtil;
+
+    // 搜索结果缓存键前缀（防止缓存穿透）
+    private static final String SEARCH_CACHE_KEY_PREFIX = "product:search:";
+    // 空值缓存的过期时间（5分钟）
+    private static final int EMPTY_CACHE_EXPIRE_MINUTES = 5;
+    // 商品分布式锁键前缀（防止缓存击穿）
+    private static final String PRODUCT_LOCK_KEY_PREFIX = "lock:product:";
 
     @Override
     @Transactional(readOnly = true)
@@ -79,10 +92,21 @@ public class ProductServiceImpl implements ProductService {
             throw new IllegalArgumentException("Product cannot be null");
         }
 
-        product.setCreatedAt(java.time.LocalDateTime.now());
-        product.setUpdatedAt(java.time.LocalDateTime.now());
-        productMapper.insert(product);
-        return mapToProductDTO(product);
+        // 分布式锁，防止缓存击穿
+        String lockKey = PRODUCT_LOCK_KEY_PREFIX + "create";
+        try {
+            boolean locked = redisUtil.tryLock(lockKey, 10, 30, TimeUnit.SECONDS);
+            if (!locked) {
+                throw new RuntimeException("系统繁忙，请稍后再试");
+            }
+
+            product.setCreatedAt(java.time.LocalDateTime.now());
+            product.setUpdatedAt(java.time.LocalDateTime.now());
+            productMapper.insert(product);
+            return mapToProductDTO(product);
+        } finally {
+            redisUtil.unlock(lockKey);
+        }
     }
 
     @Override
@@ -97,20 +121,31 @@ public class ProductServiceImpl implements ProductService {
             throw new IllegalArgumentException("Product cannot be null");
         }
 
-        Product existingProduct = productMapper.findById(id);
-        if (existingProduct == null) {
-            throw new ResourceNotFoundException("Product not found with id: " + id);
+        // 分布式锁，防止缓存击穿（锁商品ID）
+        String lockKey = PRODUCT_LOCK_KEY_PREFIX + id;
+        try {
+            boolean locked = redisUtil.tryLock(lockKey, 10, 30, TimeUnit.SECONDS);
+            if (!locked) {
+                throw new RuntimeException("系统繁忙，请稍后再试");
+            }
+
+            Product existingProduct = productMapper.findById(id);
+            if (existingProduct == null) {
+                throw new ResourceNotFoundException("Product not found with id: " + id);
+            }
+
+            existingProduct.setName(product.getName());
+            existingProduct.setPrice(product.getPrice());
+            existingProduct.setStock(product.getStock());
+            existingProduct.setDescription(product.getDescription());
+            existingProduct.setImageUrl(product.getImageUrl());
+            existingProduct.setUpdatedAt(java.time.LocalDateTime.now());
+
+            productMapper.update(existingProduct);
+            return mapToProductDTO(existingProduct);
+        } finally {
+            redisUtil.unlock(lockKey);
         }
-
-        existingProduct.setName(product.getName());
-        existingProduct.setPrice(product.getPrice());
-        existingProduct.setStock(product.getStock());
-        existingProduct.setDescription(product.getDescription());
-        existingProduct.setImageUrl(product.getImageUrl());
-        existingProduct.setUpdatedAt(java.time.LocalDateTime.now());
-
-        productMapper.update(existingProduct);
-        return mapToProductDTO(existingProduct);
     }
 
     @Override
@@ -122,11 +157,22 @@ public class ProductServiceImpl implements ProductService {
             throw new IllegalArgumentException("Product ID cannot be null");
         }
 
-        Product product = productMapper.findById(id);
-        if (product == null) {
-            throw new ResourceNotFoundException("Product not found with id: " + id);
+        // 分布式锁，防止缓存击穿（锁商品ID）
+        String lockKey = PRODUCT_LOCK_KEY_PREFIX + id;
+        try {
+            boolean locked = redisUtil.tryLock(lockKey, 10, 30, TimeUnit.SECONDS);
+            if (!locked) {
+                throw new RuntimeException("系统繁忙，请稍后再试");
+            }
+
+            Product product = productMapper.findById(id);
+            if (product == null) {
+                throw new ResourceNotFoundException("Product not found with id: " + id);
+            }
+            productMapper.deleteById(id);
+        } finally {
+            redisUtil.unlock(lockKey);
         }
-        productMapper.deleteById(id);
     }
 
     @Override
@@ -135,9 +181,32 @@ public class ProductServiceImpl implements ProductService {
         if (keyword == null || keyword.trim().isEmpty()) {
             return getAllProducts();
         }
-        return productMapper.search(keyword.trim()).stream()
+
+        // 生成缓存key
+        String cacheKey = SEARCH_CACHE_KEY_PREFIX + keyword.trim().toLowerCase();
+
+        // 先从缓存读取
+        List<ProductDTO> cached = redisUtil.get(cacheKey, List.class);
+        if (cached != null) {
+            return cached;
+        }
+
+        // 查询数据库
+        List<ProductDTO> result = productMapper.search(keyword.trim()).stream()
                 .map(this::mapToProductDTO)
                 .collect(Collectors.toList());
+
+        // 缓存搜索结果，防止缓存穿透
+        if (result.isEmpty()) {
+            // 搜索结果为空，缓存空值标记，5分钟后过期
+            redisUtil.set(cacheKey + ":empty", "true", EMPTY_CACHE_EXPIRE_MINUTES, TimeUnit.MINUTES);
+            redisUtil.set(cacheKey, Collections.emptyList(), EMPTY_CACHE_EXPIRE_MINUTES, TimeUnit.MINUTES);
+        } else {
+            // 有结果，正常缓存30分钟
+            redisUtil.set(cacheKey, result, 30, TimeUnit.MINUTES);
+        }
+
+        return result;
     }
 
     @Override

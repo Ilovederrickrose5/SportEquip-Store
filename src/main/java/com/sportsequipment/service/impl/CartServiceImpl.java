@@ -43,7 +43,18 @@ public class CartServiceImpl implements CartService {
     @Autowired
     private RedisUtil redisUtil;
 
+    // 购物车缓存键前缀
     private static final String CART_CACHE_KEY_PREFIX = "cart:user:";
+
+    // 缓存过期时间配置（防止雪崩）
+    // 基础过期时间24小时 + 随机偏移量4小时 = 20~28小时随机过期
+    private static final int CACHE_BASE_EXPIRE_HOURS = 24;
+    private static final int CACHE_RANDOM_OFFSET_HOURS = 4;
+
+    // 计算随机过期时间（20~28小时）
+    private int getRandomCacheExpireHours() {
+        return CACHE_BASE_EXPIRE_HOURS + (int) (Math.random() * CACHE_RANDOM_OFFSET_HOURS);
+    }
 
     private User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -88,7 +99,7 @@ public class CartServiceImpl implements CartService {
 
         Cart cart = getOrCreateCart();
         CartDTO cartDTO = mapToCartDTO(cart);
-        redisUtil.set(cacheKey, cartDTO, 24, TimeUnit.HOURS);
+        redisUtil.set(cacheKey, cartDTO, getRandomCacheExpireHours(), TimeUnit.HOURS);
 
         return cartDTO;
     }
@@ -101,7 +112,8 @@ public class CartServiceImpl implements CartService {
         }
 
         User user = getCurrentUser();
-        String lockKey = "cart:lock:" + user.getId();
+        // 细粒度锁：锁用户+商品ID，不同商品可并发操作
+        String lockKey = "cart:lock:" + user.getId() + ":product:" + productId;
 
         try {
             boolean locked = redisUtil.tryLock(lockKey, 10, 30, TimeUnit.SECONDS);
@@ -151,7 +163,7 @@ public class CartServiceImpl implements CartService {
 
             String cacheKey = CART_CACHE_KEY_PREFIX + user.getId();
             CartDTO cartDTO = mapToCartDTO(cart);
-            redisUtil.set(cacheKey, cartDTO, 24, TimeUnit.HOURS);
+            redisUtil.set(cacheKey, cartDTO, getRandomCacheExpireHours(), TimeUnit.HOURS);
 
             return cartDTO;
         } finally {
@@ -167,7 +179,8 @@ public class CartServiceImpl implements CartService {
         }
 
         User user = getCurrentUser();
-        String lockKey = "cart:lock:" + user.getId();
+        // 细粒度锁：锁用户+购物车项ID，不同商品项可并发操作
+        String lockKey = "cart:lock:" + user.getId() + ":item:" + cartItemId;
 
         try {
             boolean locked = redisUtil.tryLock(lockKey, 10, 30, TimeUnit.SECONDS);
@@ -203,7 +216,7 @@ public class CartServiceImpl implements CartService {
 
             String cacheKey = CART_CACHE_KEY_PREFIX + user.getId();
             CartDTO cartDTO = mapToCartDTO(cart);
-            redisUtil.set(cacheKey, cartDTO, 24, TimeUnit.HOURS);
+            redisUtil.set(cacheKey, cartDTO, getRandomCacheExpireHours(), TimeUnit.HOURS);
 
             return cartDTO;
         } finally {
@@ -215,7 +228,8 @@ public class CartServiceImpl implements CartService {
     @Transactional
     public CartDTO removeFromCart(Long cartItemId) {
         User user = getCurrentUser();
-        String lockKey = "cart:lock:" + user.getId();
+        // 细粒度锁：锁用户+购物车项ID，不同商品项可并发操作
+        String lockKey = "cart:lock:" + user.getId() + ":item:" + cartItemId;
 
         try {
             boolean locked = redisUtil.tryLock(lockKey, 10, 30, TimeUnit.SECONDS);
@@ -240,7 +254,7 @@ public class CartServiceImpl implements CartService {
 
             String cacheKey = CART_CACHE_KEY_PREFIX + user.getId();
             CartDTO cartDTO = mapToCartDTO(cart);
-            redisUtil.set(cacheKey, cartDTO, 24, TimeUnit.HOURS);
+            redisUtil.set(cacheKey, cartDTO, getRandomCacheExpireHours(), TimeUnit.HOURS);
 
             return cartDTO;
         } finally {
