@@ -2,6 +2,7 @@ package com.sportsequipment.mapper;
 
 import com.sportsequipment.entity.Product;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -24,5 +25,5 @@ public interface ProductMapper {
 
     List<Product> search(String keyword);
 
-    List<Product> selectRandomProducts(int limit);
+    List<Product> selectRandomProducts(@Param("limit") int limit);
 }
