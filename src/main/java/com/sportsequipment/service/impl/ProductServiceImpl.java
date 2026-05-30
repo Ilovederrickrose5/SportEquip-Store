@@ -186,6 +186,7 @@ public class ProductServiceImpl implements ProductService {
         String cacheKey = SEARCH_CACHE_KEY_PREFIX + keyword.trim().toLowerCase();
 
         // 先从缓存读取
+        @SuppressWarnings("unchecked")
         List<ProductDTO> cached = redisUtil.get(cacheKey, List.class);
         if (cached != null) {
             return cached;
