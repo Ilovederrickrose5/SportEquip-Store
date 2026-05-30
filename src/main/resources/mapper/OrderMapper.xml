@@ -26,8 +26,8 @@
     </select>
 
     <insert id="insert" parameterType="Order">
-        INSERT INTO `order` (user_id, total_amount, status, shipping_address, created_at, updated_at)
-        VALUES (#{userId}, #{totalAmount}, #{status}, #{shippingAddress}, #{createdAt}, #{updatedAt})
+        INSERT INTO `order` (user_id, total_amount, status, shipping_address, phone, payment_method, recipient_name, remark, created_at, updated_at)
+        VALUES (#{userId}, #{totalAmount}, #{status}, #{shippingAddress}, #{phone}, #{paymentMethod}, #{recipientName}, #{remark}, #{createdAt}, #{updatedAt})
     </insert>
 
     <update id="update" parameterType="Order">

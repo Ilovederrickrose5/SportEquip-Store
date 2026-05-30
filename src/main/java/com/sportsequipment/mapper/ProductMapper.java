@@ -19,4 +19,8 @@ public interface ProductMapper {
     void deleteById(Long id);
 
     List<Product> findByThirdCategoryId(Long thirdCategoryId);
+
+    List<Product> searchByName(String keyword);
+
+    List<Product> search(String keyword);
 }

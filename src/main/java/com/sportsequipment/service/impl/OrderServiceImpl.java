@@ -8,6 +8,7 @@ import com.sportsequipment.entity.Product;
 import com.sportsequipment.entity.User;
 import com.sportsequipment.exception.ResourceNotFoundException;
 import com.sportsequipment.exception.UnauthorizedException;
+import com.sportsequipment.mapper.OrderItemMapper;
 import com.sportsequipment.mapper.OrderMapper;
 import com.sportsequipment.mapper.ProductMapper;
 import com.sportsequipment.mapper.UserMapper;
@@ -28,6 +29,9 @@ public class OrderServiceImpl implements OrderService {
 
     @Autowired
     private OrderMapper orderMapper;
+
+    @Autowired
+    private OrderItemMapper orderItemMapper;
 
     @Autowired
     private UserMapper userMapper;
@@ -92,6 +96,7 @@ public class OrderServiceImpl implements OrderService {
         // 创建订单
         Order order = new Order();
         order.setUser(user);
+        order.setUserId(userId);
         // 设置支付方式
         order.setPaymentMethod(orderDTO.getPaymentMethod());
         // 根据是否选择了支付方式设置订单状态：选择了支付方式则为已支付(PAID)，否则为待支付(PENDING)
@@ -118,8 +123,7 @@ public class OrderServiceImpl implements OrderService {
             throw new IllegalStateException("Order must contain at least one order item");
         }
 
-        orderMapper.insert(order);
-
+        // 先计算总金额并验证库存
         for (OrderItemDTO itemDTO : dtoItems) {
             Long productId = itemDTO.getProductId();
             if (productId == null) {
@@ -135,6 +139,20 @@ public class OrderServiceImpl implements OrderService {
                 throw new IllegalArgumentException("Insufficient stock for product: " + product.getName());
             }
 
+            // 累加总金额
+            totalAmountWrapper[0] = totalAmountWrapper[0]
+                    .add(product.getPrice().multiply(BigDecimal.valueOf(itemDTO.getQuantity())));
+        }
+
+        // 设置总金额后再插入订单
+        order.setTotalAmount(totalAmountWrapper[0]);
+        orderMapper.insert(order);
+
+        // 再插入订单项并更新库存
+        for (OrderItemDTO itemDTO : dtoItems) {
+            Long productId = itemDTO.getProductId();
+            Product product = productMapper.findById(productId);
+
             // 减少库存
             product.setStock(product.getStock() - itemDTO.getQuantity());
             product.setUpdatedAt(java.time.LocalDateTime.now());
@@ -143,17 +161,15 @@ public class OrderServiceImpl implements OrderService {
             // 创建订单项
             OrderItem orderItem = new OrderItem();
             orderItem.setOrder(order);
+            orderItem.setOrderId(order.getId());
             orderItem.setProduct(product);
+            orderItem.setProductId(productId);
             orderItem.setQuantity(itemDTO.getQuantity());
             orderItem.setPrice(product.getPrice());
 
-            // 累加总金额
-            totalAmountWrapper[0] = totalAmountWrapper[0]
-                    .add(product.getPrice().multiply(BigDecimal.valueOf(itemDTO.getQuantity())));
+            // 插入订单项
+            orderItemMapper.insert(orderItem);
         }
-
-        order.setTotalAmount(totalAmountWrapper[0]);
-        orderMapper.update(order);
 
         return mapToOrderDTO(order);
     }
@@ -269,11 +285,11 @@ public class OrderServiceImpl implements OrderService {
         // 直接使用 orderId 和 productId 字段，避免关联对象为 null 的问题
         orderItemDTO.setOrderId(orderItem.getOrderId());
         orderItemDTO.setProductId(orderItem.getProductId());
-        
+
         // 查询商品名称
         Product product = productMapper.findById(orderItem.getProductId());
         orderItemDTO.setProductName(product != null ? product.getName() : "未知商品");
-        
+
         orderItemDTO.setQuantity(orderItem.getQuantity());
         orderItemDTO.setPrice(orderItem.getPrice());
         return orderItemDTO;

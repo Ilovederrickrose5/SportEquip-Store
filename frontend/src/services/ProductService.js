@@ -24,13 +24,17 @@ class ProductService {
   }
   
   // 获取所有产品
-  async getAllProducts() {
+  async getAllProducts(searchQuery = null) {
     try {
-      console.log('ProductService.getAllProducts() - 准备调用API:', API_ENDPOINTS.products.getAll);
-      console.log('请求URL:', this.api.defaults.baseURL + API_ENDPOINTS.products.getAll);
+      const url = searchQuery 
+        ? `${API_ENDPOINTS.products.getAll}?search=${encodeURIComponent(searchQuery)}`
+        : API_ENDPOINTS.products.getAll;
+      
+      console.log('ProductService.getAllProducts() - 准备调用API:', url);
+      console.log('请求URL:', this.api.defaults.baseURL + url);
       
       const startTime = Date.now();
-      const response = await this.api.get(API_ENDPOINTS.products.getAll)
+      const response = await this.api.get(url)
       const endTime = Date.now();
       
       console.log('ProductService.getAllProducts() - API调用成功');

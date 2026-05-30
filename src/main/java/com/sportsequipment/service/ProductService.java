@@ -12,5 +12,6 @@ public interface ProductService {
     ProductDTO createProduct(Product product);
     ProductDTO updateProduct(Long id, Product product);
     void deleteProduct(Long id);
+    List<ProductDTO> searchProducts(String keyword);
 }
     

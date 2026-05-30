@@ -140,7 +140,7 @@
 import { Search } from '@element-plus/icons-vue';
 import OrderService from '../services/OrderService';
 import AdminOrderFilter from '../components/Order/AdminOrderFilter.vue';
-import OrderDetails from '../components/Order/OrderDetails.vue';
+import OrderDetails from '../components/Order/OrderDetail.vue';
 import OrderStatusUpdate from '../components/Order/OrderStatusUpdate.vue';
 
 export default {

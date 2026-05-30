@@ -63,6 +63,7 @@ export default {
   data() {
     return {
       showLogoutModal: false,
+      searchQuery: '',
       // 轮播图数据
       carouselItems: [
         {
@@ -113,16 +114,27 @@ export default {
   },
   
   async mounted() {
-    // 页面加载时获取推荐商品
+    // 页面加载时获取推荐商品，同时检查URL中的搜索参数
+    this.searchQuery = this.$route.query.search || '';
     await this.loadRecommendedProducts();
   },
+  
+  watch: {
+    // 监听路由变化，当搜索参数改变时重新加载商品
+    '$route.query.search': function(newSearch) {
+      this.searchQuery = newSearch || '';
+      this.loadRecommendedProducts();
+    }
+  },
+  
   methods: {
     // 加载推荐商品
     async loadRecommendedProducts() {
       this.loadingRecommendedProducts = true;
       try {
         // 获取所有商品，然后筛选出一部分作为推荐
-        const allProducts = await ProductService.getAllProducts();
+        // 如果有搜索参数，传递给服务进行搜索
+        const allProducts = await ProductService.getAllProducts(this.searchQuery);
         
         // 简单的推荐逻辑：取前8个商品作为推荐
         // 实际应用中可以根据用户历史行为、热门商品等进行更复杂的推荐算法
@@ -174,10 +186,10 @@ export default {
     async handleAddToCart(productId, quantity) {
       try {
         await CartService.addToCart(productId, quantity);
-        alert('商品已成功添加到购物车！');
+        this.$message.success('商品已成功添加到购物车！');
       } catch (error) {
         console.error('添加商品到购物车失败:', error);
-        alert('添加商品失败，请稍后重试。');
+        this.$message.error('添加商品失败，请稍后重试。');
       }
     },
     
@@ -220,19 +232,15 @@ export default {
           // 即使localStorage清理失败，也要继续退出流程
         }
         
-        // 使用延迟跳转确保所有状态更新完成
-        setTimeout(() => {
-          alert('已成功退出登录');
-          // 使用window.location.href强制刷新，确保在所有环境中正确跳转
-          window.location.href = '/';
-        }, 100);
+        // 立即显示成功消息并跳转，无需延迟
+        this.$message.success('已成功退出登录');
+        // 使用window.location.href强制刷新，确保在所有环境中正确跳转
+        window.location.href = '/';
       } catch (error) {
         console.error('退出登录过程中出现严重错误:', error);
-        alert('退出登录过程中出现错误，但您的会话已终止，请刷新页面');
-        // 即使出错，也尝试跳转到首页
-        setTimeout(() => {
-          window.location.href = '/';
-        }, 500);
+        this.$message.error('退出登录过程中出现错误，但您的会话已终止，请刷新页面');
+        // 立即跳转到首页
+        window.location.href = '/';
       }
     }
   }

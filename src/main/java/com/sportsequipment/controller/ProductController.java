@@ -26,11 +26,15 @@ public class ProductController {
         this.productService = productService;
     }
 
-    // 获取所有商品
+    // 获取所有商品或搜索商品
     @GetMapping
     public ResponseEntity<List<ProductDTO>> getAllProducts(
             @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer size) {
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String search) {
+        if (search != null && !search.trim().isEmpty()) {
+            return ResponseEntity.ok(productService.searchProducts(search));
+        }
         if (page != null && size != null) {
             return ResponseEntity.ok(productService.getProductsByPage(page, size));
         } else {

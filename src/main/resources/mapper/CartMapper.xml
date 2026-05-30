@@ -10,15 +10,14 @@
         SELECT * FROM cart
     </select>
 
-    <insert id="insert" parameterType="Cart">
-        INSERT INTO cart (user_id, created_at, updated_at)
-        VALUES (#{userId}, #{createdAt}, #{updatedAt})
+    <insert id="insert" parameterType="Cart" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO cart (user_id)
+        VALUES (#{userId})
     </insert>
 
     <update id="update" parameterType="Cart">
         UPDATE cart SET
-        user_id = #{userId},
-        updated_at = #{updatedAt}
+        user_id = #{userId}
         WHERE id = #{id}
     </update>
 

@@ -1,9 +1,15 @@
 package com.sportsequipment.service.impl;
 
 import com.sportsequipment.dto.ProductDTO;
+import com.sportsequipment.entity.MainCategory;
 import com.sportsequipment.entity.Product;
+import com.sportsequipment.entity.SubCategory;
+import com.sportsequipment.entity.ThirdCategory;
 import com.sportsequipment.exception.ResourceNotFoundException;
+import com.sportsequipment.mapper.MainCategoryMapper;
 import com.sportsequipment.mapper.ProductMapper;
+import com.sportsequipment.mapper.SubCategoryMapper;
+import com.sportsequipment.mapper.ThirdCategoryMapper;
 import com.sportsequipment.service.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
@@ -19,6 +25,15 @@ public class ProductServiceImpl implements ProductService {
 
     @Autowired
     private ProductMapper productMapper;
+
+    @Autowired
+    private ThirdCategoryMapper thirdCategoryMapper;
+
+    @Autowired
+    private SubCategoryMapper subCategoryMapper;
+
+    @Autowired
+    private MainCategoryMapper mainCategoryMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -114,9 +129,19 @@ public class ProductServiceImpl implements ProductService {
         productMapper.deleteById(id);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductDTO> searchProducts(String keyword) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return getAllProducts();
+        }
+        return productMapper.search(keyword.trim()).stream()
+                .map(this::mapToProductDTO)
+                .collect(Collectors.toList());
+    }
+
     // 转换实体到DTO
     private ProductDTO mapToProductDTO(Product product) {
-        // 验证参数是否为空
         if (product == null) {
             throw new IllegalArgumentException("Product cannot be null");
         }
@@ -131,21 +156,29 @@ public class ProductServiceImpl implements ProductService {
         productDTO.setCreatedAt(product.getCreatedAt());
         productDTO.setUpdatedAt(product.getUpdatedAt());
 
-        // 设置三级分类信息（品牌）
-        if (product.getThirdCategory() != null) {
-            productDTO.setThirdCategoryId(product.getThirdCategory().getId());
-            productDTO.setThirdCategoryName(product.getThirdCategory().getName());
+        // 设置三级分类信息（品牌）- 手动查询，避免MyBatis关联对象为null
+        if (product.getThirdCategoryId() != null) {
+            ThirdCategory thirdCategory = thirdCategoryMapper.findById(product.getThirdCategoryId());
+            if (thirdCategory != null) {
+                productDTO.setThirdCategoryId(thirdCategory.getId());
+                productDTO.setThirdCategoryName(thirdCategory.getName());
 
-            // 设置二级分类信息
-            if (product.getThirdCategory().getSubCategory() != null) {
-                productDTO.setSubCategoryId(product.getThirdCategory().getSubCategory().getId());
-                productDTO.setSubCategoryName(product.getThirdCategory().getSubCategory().getName());
+                // 设置二级分类信息
+                if (thirdCategory.getSubCategoryId() != null) {
+                    SubCategory subCategory = subCategoryMapper.findById(thirdCategory.getSubCategoryId());
+                    if (subCategory != null) {
+                        productDTO.setSubCategoryId(subCategory.getId());
+                        productDTO.setSubCategoryName(subCategory.getName());
 
-                // 设置一级分类信息（主分类）
-                if (product.getThirdCategory().getSubCategory().getMainCategory() != null) {
-                    productDTO.setMainCategoryId(product.getThirdCategory().getSubCategory().getMainCategory().getId());
-                    productDTO.setMainCategoryName(
-                            product.getThirdCategory().getSubCategory().getMainCategory().getName());
+                        // 设置一级分类信息（主分类）
+                        if (subCategory.getMainCategoryId() != null) {
+                            MainCategory mainCategory = mainCategoryMapper.findById(subCategory.getMainCategoryId());
+                            if (mainCategory != null) {
+                                productDTO.setMainCategoryId(mainCategory.getId());
+                                productDTO.setMainCategoryName(mainCategory.getName());
+                            }
+                        }
+                    }
                 }
             }
         }

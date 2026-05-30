@@ -1,125 +1,119 @@
 <template>
   <div class="register-container">
-    <div class="register-form-wrapper">
-      <el-card class="register-form-card">
-        <template #header>
-          <div class="logo-container">
-            <div class="logo-icon">🏃</div>
-            <h1 class="app-name">运动装备商城</h1>
-          </div>
-          <h2 class="register-title">用户注册</h2>
-        </template>
-        
-        <BaseForm 
-          ref="baseFormRef"
-          :formData="registerForm"
-          :rules="rules"
-          :label-position="'top'"
-          :label-width="''"
-        >
-          <el-form-item label="用户名" prop="username">
-            <el-input
-              v-model="registerForm.username"
-              placeholder="请输入用户名"
-              prefix-icon="el-icon-user"
-              clearable
-            />
-          </el-form-item>
-          
-          <el-form-item label="邮箱" prop="email">
-            <el-input
-              v-model="registerForm.email"
-              type="email"
-              placeholder="请输入邮箱"
-              prefix-icon="el-icon-message"
-              clearable
-            />
-          </el-form-item>
-          
-          <el-form-item label="密码" prop="password">
-            <el-input
-              v-model="registerForm.password"
-              type="password"
-              placeholder="请输入密码"
-              prefix-icon="el-icon-lock"
-              show-password
-              clearable
-            />
-          </el-form-item>
-          
-          <el-form-item label="手机号" prop="phone">
-            <el-input
-              v-model="registerForm.phone"
-              type="tel"
-              placeholder="请输入手机号（选填）"
-              prefix-icon="el-icon-phone"
-              clearable
-            />
-          </el-form-item>
-          
-          <el-form-item label="地址">
-            <el-input
-              v-model="registerForm.address"
-              placeholder="请输入地址（选填）"
-              prefix-icon="el-icon-location"
-              clearable
-            />
-          </el-form-item>
-          
-          <!-- 错误提示现在通过ElMessage弹窗显示 -->
-          
-          <el-alert
-            v-if="successMessage"
-            :message="successMessage"
-            type="success"
-            show-icon
-            :closable="false"
-            class="global-message"
+    <!-- 左上角 Logo -->
+    <div class="logo-corner">
+      <div class="logo-text">Sport-Equiment</div>
+    </div>
+    
+    <!-- 注册表单区域 -->
+    <div class="register-wrapper">
+      <h1 class="register-title">注册</h1>
+      
+      <el-form 
+        ref="formRef"
+        :model="registerForm"
+        :rules="rules"
+        class="register-form"
+      >
+        <!-- 用户名输入框 -->
+        <div class="input-group">
+          <input
+            v-model="registerForm.username"
+            type="text"
+            placeholder="用户名"
+            class="main-input"
           />
-          
-          <el-button 
-            type="primary" 
-            class="btn-center"
-            :loading="isLoading"
-            @click="handleRegister"
-          >
-            注册
-          </el-button>
-        </BaseForm>
-        
-        <div class="card-footer">
-          <span>已有账号？</span>
-          <router-link to="/login" class="link">立即登录</router-link>
         </div>
-      </el-card>
+        
+        <!-- 邮箱输入框 -->
+        <div class="input-group">
+          <input
+            v-model="registerForm.email"
+            type="email"
+            placeholder="邮箱"
+            class="main-input"
+          />
+        </div>
+        
+        <!-- 密码输入框 -->
+        <div class="input-group">
+          <input
+            v-model="registerForm.password"
+            type="password"
+            placeholder="密码"
+            class="main-input"
+          />
+        </div>
+        
+        <!-- 手机号输入框 -->
+        <div class="input-group">
+          <input
+            v-model="registerForm.phone"
+            type="tel"
+            placeholder="手机号（选填）"
+            class="main-input"
+          />
+        </div>
+        
+        <!-- 地址输入框 -->
+        <div class="input-group">
+          <input
+            v-model="registerForm.address"
+            type="text"
+            placeholder="地址（选填）"
+            class="main-input"
+          />
+        </div>
+        
+        <!-- 成功提示 -->
+        <el-alert
+          v-if="successMessage"
+          :message="successMessage"
+          type="success"
+          show-icon
+          :closable="false"
+          class="global-message"
+        />
+        
+        <!-- 注册按钮 -->
+        <el-button 
+          type="primary" 
+          class="register-btn"
+          :loading="isLoading"
+          @click="handleRegister"
+        >
+          注册
+        </el-button>
+      </el-form>
+      
+      <!-- 登录链接 -->
+      <div class="login-link">
+        <span>已有账号？</span>
+        <router-link to="/login" class="link">立即登录</router-link>
+      </div>
     </div>
   </div>
 </template>
 
 <script>
-import axios from 'axios'
-import { ref } from 'vue'
+import axiosInstance from '../utils/axiosInstance'
+import { API_ENDPOINTS } from '../config/api'
+import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import BaseForm from '../components/BaseForm.vue'
 
 export default {
   name: 'RegisterView',
-  components: {
-    BaseForm
-  },
   setup() {
     const router = useRouter()
-    const baseFormRef = ref(null)
-    const registerForm = ref({
+    const formRef = ref(null)
+    const registerForm = reactive({
       username: '',
       email: '',
       password: '',
       phone: '',
       address: ''
     })
-    // 不再使用Vue的响应式引用，而是直接操作DOM
-    // const errorMessage = ref('')
     const successMessage = ref('')
     const isLoading = ref(false)
     
@@ -154,82 +148,70 @@ export default {
     }
     
     const handleRegister = async () => {
-      if (!baseFormRef.value) return
+      if (!formRef.value) return
       
       try {
-        // 使用BaseForm的验证方法
-        await baseFormRef.value.validate()
-        
         isLoading.value = true
-        // ElMessage不需要手动清空容器
         successMessage.value = ''
         
-        const response = await axios.post('http://localhost:8080/api/auth/register', registerForm.value)
+        const response = await axiosInstance.post(API_ENDPOINTS.auth.register, registerForm)
         
         successMessage.value = '注册成功！即将跳转到登录页面'
-        
-        // 清空表单
-        if (baseFormRef.value) {
-          baseFormRef.value.resetFields()
-        }
         
         // 2秒后跳转到登录页面
         setTimeout(() => {
           router.push('/login')
         }, 2000)
       } catch (error) {
-        // 表单验证失败不会进入这里，因为BaseForm会处理验证提示
-        if (error !== 'validation-failed') {
-          if (error.response) {
-            // 服务器返回错误响应
-            console.log('错误响应:', error.response);
-            console.log('错误数据:', error.response.data);
+        let finalErrorMessage = '';
+        
+        // 检查是否有响应数据
+        const response = error.response || (error.response && error.response);
+        
+        if (response) {
+          // 有服务器响应
+          if (response.data && response.data.message) {
+            const message = response.data.message;
             
-            // 简单直接的错误消息设置
-            let finalErrorMessage = '';
-            
-            // 检查错误数据中是否包含邮箱已被使用的信息
-            if (error.response.data && error.response.data.message) {
-              const message = error.response.data.message;
-              console.log('错误消息:', message);
-              
-              if (message.includes('邮箱已被使用') || message.includes('邮箱已被注册')) {
-                finalErrorMessage = '邮箱已被注册，请更换其他邮箱';
-              } else if (message.includes('已存在') || message.includes('exist')) {
-                finalErrorMessage = '用户名或邮箱已存在，请更换后重试';
-              } else {
-                finalErrorMessage = message;
-              }
+            if (message.includes('邮箱已被使用') || message.includes('邮箱已被注册')) {
+              finalErrorMessage = '邮箱已被注册，请更换其他邮箱';
+            } else if (message.includes('已存在') || message.includes('exist')) {
+              finalErrorMessage = '用户名或邮箱已存在，请更换后重试';
             } else {
-              // 默认错误消息
-              finalErrorMessage = '注册失败，请稍后重试';
+              finalErrorMessage = message;
             }
-            
-            console.log('设置错误消息:', finalErrorMessage);
-            
-            // 使用Element Plus的ElMessage组件显示红色弹窗错误提示
-            ElMessage.error({
-              message: finalErrorMessage,
-              duration: 3000, // 3秒后自动关闭
-              showClose: true // 显示关闭按钮
-            });
-            console.log('通过ElMessage弹窗设置了错误消息:', finalErrorMessage);
+          } else if (response.status === 401) {
+            finalErrorMessage = '注册接口未授权，请联系管理员';
+          } else if (response.status === 500) {
+            finalErrorMessage = '服务器内部错误，请稍后重试';
           } else {
-            // 使用Element Plus的ElMessage组件显示网络错误弹窗
-            ElMessage.error({
-              message: '网络错误，请检查您的网络连接',
-              duration: 3000,
-              showClose: true
-            });
+            finalErrorMessage = `注册失败，状态码: ${response.status}`;
           }
+        } else if (error.message) {
+          // 检查错误消息
+          if (error.message.includes('网络') || error.message.includes('Network')) {
+            finalErrorMessage = '网络错误，请检查您的网络连接';
+          } else if (error.message.includes('未授权')) {
+            finalErrorMessage = '注册接口未授权，请联系管理员';
+          } else {
+            finalErrorMessage = error.message;
+          }
+        } else {
+          finalErrorMessage = '注册失败，请稍后重试';
         }
+        
+        ElMessage.error({
+          message: finalErrorMessage,
+          duration: 3000,
+          showClose: true
+        });
       } finally {
         isLoading.value = false
       }
     }
     
     return {
-      baseFormRef,
+      formRef,
       registerForm,
       rules,
       successMessage,
@@ -241,170 +223,118 @@ export default {
 </script>
 
 <style scoped>
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
 .register-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #2196f3, #03a9f4);
-  padding: 20px;
-}
-
-.register-form-wrapper {
-  width: 100%;
-  max-width: 450px;
-}
-
-.register-form-card {
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-  animation: slideInUp 0.6s ease-out;
-}
-
-/* 使用Element Plus的header插槽样式 */
-.register-form-card >>> .el-card__header {
-  background: linear-gradient(135deg, #1976d2, #2196f3);
-  color: white;
-  padding: 30px 20px;
-  text-align: center;
-  border-bottom: none;
-}
-
-.logo-container {
+  background-color: #1a1a1a;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  margin-bottom: 16px;
+  padding: 20px;
+  position: relative;
 }
 
-.logo-icon {
-  font-size: 3rem;
-  margin-right: 16px;
-  animation: float 3s ease-in-out infinite;
+.logo-corner {
+  position: absolute;
+  top: 30px;
+  left: 30px;
 }
 
-.app-name {
-  font-size: 1.6rem;
+.logo-text {
+  font-size: 24px;
   font-weight: 700;
-  margin: 0;
+  color: #ffffff;
+  letter-spacing: 2px;
+}
+
+.register-wrapper {
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .register-title {
-  font-size: 1.8rem;
+  font-size: 32px;
   font-weight: 600;
-  margin: 0;
-  color: white;
+  color: #ffffff;
+  margin-bottom: 40px;
 }
 
-/* Element Plus内容区域 */
-.register-form-card >>> .el-card__body {
-  padding: 30px;
+.register-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.input-group {
+  width: 100%;
+}
+
+.main-input {
+  width: 100%;
+  height: 48px;
+  background-color: #2d2d2d;
+  border: 1px solid #3d3d3d;
+  border-radius: 0;
+  color: #ffffff;
+  padding: 0 16px;
+  font-size: 14px;
+  outline: none;
+  
+  &::placeholder {
+    color: #666666;
+  }
+  
+  &:focus {
+    border-color: #4CAF50;
+    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+  }
 }
 
 .global-message {
-  margin-bottom: 20px;
+  margin-bottom: 10px;
 }
 
-/* 错误消息现在通过ElMessage弹窗显示，不再需要这些样式 */
-
-.btn-center {
-  display: block;
-  margin: 10px auto 0;
-  width: auto;
-  min-width: 120px;
+.register-btn {
+  background-color: #2d5a2d !important;
+  border: none !important;
+  height: 48px !important;
+  font-size: 16px !important;
+  color: #ffffff !important;
+  border-radius: 0 !important;
+  
+  &:hover:not(:disabled) {
+    background-color: #3a6b3a !important;
+  }
+  
+  &:disabled {
+    background-color: #4a4a4a !important;
+    cursor: not-allowed !important;
+  }
+  
+  ::v-deep .el-button {
+    border-radius: 0 !important;
+  }
 }
 
-.card-footer {
-  background-color: #f8f9fa;
-  padding: 20px;
-  text-align: center;
-  border-top: 1px solid #e9ecef;
-}
-
-.card-footer span {
+.login-link {
+  margin-top: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #888888;
   font-size: 14px;
-  color: #6c757d;
-}
-
-.link {
-  color: #1976d2;
-  text-decoration: none;
-  font-weight: 500;
-  margin-left: 8px;
-}
-
-.link:hover {
-  color: #1565c0;
-  text-decoration: underline;
-}
-
-/* 响应式调整 */
-@media (max-width: 768px) {
-  .register-container {
-    padding: 16px;
-  }
   
-  .register-form-wrapper {
-    max-width: 100%;
-  }
-  
-  .register-form-card >>> .el-card__header,
-  .register-form-card >>> .el-card__body {
-    padding: 24px;
-  }
-  
-  .register-title {
-    font-size: 1.5rem;
-  }
-  
-  .logo-icon {
-    font-size: 2.5rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .register-container {
-    padding: 12px;
-  }
-  
-  .register-form-card >>> .el-card__header,
-  .register-form-card >>> .el-card__body,
-  .card-footer {
-    padding: 20px;
-  }
-  
-  .register-title {
-    font-size: 1.3rem;
-  }
-  
-  .app-name {
-    font-size: 1.4rem;
-  }
-  
-  .logo-icon {
-    font-size: 2rem;
-  }
-}
-
-/* 入场动画 */
-@keyframes slideInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+  .link {
+    color: #4CAF50;
+    text-decoration: none;
+    
+    &:hover {
+      text-decoration: underline;
+    }
   }
 }
 </style>

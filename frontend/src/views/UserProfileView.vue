@@ -79,7 +79,7 @@ export default {
         this.userInfo = response.data
       } catch (error) {
         console.error('获取用户信息失败', error)
-        alert('获取用户信息失败，请稍后重试')
+        this.$message.error('获取用户信息失败，请稍后重试')
       }
     },
     
@@ -151,7 +151,7 @@ export default {
         if (passwordChanged) {
           message += '，密码已修改，请重新登录'
         }
-        alert(message)
+        this.$message.success(message)
         
         // 如果修改了密码，提示用户重新登录
         if (passwordChanged) {
@@ -170,7 +170,7 @@ export default {
         } else {
           errorMsg += (error.response?.data || '请稍后重试')
         }
-        alert(errorMsg)
+        this.$message.error(errorMsg)
       } finally {
         this.isSubmitting = false
         this.resetErrors()

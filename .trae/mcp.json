@@ -26,6 +26,13 @@
         "--mcp"
       ],
       "cwd": "${workspaceFolder}"
+    },
+    "browser-console": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-console-hub@latest"
+      ]
     }
   }
 }

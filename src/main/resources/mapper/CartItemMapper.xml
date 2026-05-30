@@ -10,9 +10,9 @@
         SELECT * FROM cart_item
     </select>
 
-    <insert id="insert" parameterType="CartItem">
-        INSERT INTO cart_item (cart_id, product_id, quantity, created_at, updated_at)
-        VALUES (#{cartId}, #{productId}, #{quantity}, #{createdAt}, #{updatedAt})
+    <insert id="insert" parameterType="CartItem" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO cart_item (cart_id, product_id, quantity, price)
+        VALUES (#{cartId}, #{productId}, #{quantity}, #{price})
     </insert>
 
     <update id="update" parameterType="CartItem">
@@ -20,7 +20,7 @@
         cart_id = #{cartId},
         product_id = #{productId},
         quantity = #{quantity},
-        updated_at = #{updatedAt}
+        price = #{price}
         WHERE id = #{id}
     </update>
 

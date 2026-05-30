@@ -20,6 +20,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -67,6 +68,7 @@ public class CartServiceImpl implements CartService {
         if (cart == null) {
             cart = new Cart();
             cart.setUser(user);
+            cart.setUserId(user.getId());
             cart.setCreatedAt(java.time.LocalDateTime.now());
             cart.setUpdatedAt(java.time.LocalDateTime.now());
             cartMapper.insert(cart);
@@ -81,10 +83,8 @@ public class CartServiceImpl implements CartService {
         User user = getCurrentUser();
         String cacheKey = CART_CACHE_KEY_PREFIX + user.getId();
 
-        Object cachedCart = redisUtil.get(cacheKey);
-        if (cachedCart != null) {
-            return (CartDTO) cachedCart;
-        }
+        // 先清除旧缓存，确保获取最新数据
+        redisUtil.delete(cacheKey);
 
         Cart cart = getOrCreateCart();
         CartDTO cartDTO = mapToCartDTO(cart);
@@ -136,7 +136,9 @@ public class CartServiceImpl implements CartService {
             } else {
                 CartItem cartItem = new CartItem();
                 cartItem.setCart(cart);
+                cartItem.setCartId(cart.getId());
                 cartItem.setProduct(product);
+                cartItem.setProductId(productId);
                 cartItem.setQuantity(quantity);
                 cartItem.setPrice(product.getPrice());
                 cartItem.setCreatedAt(java.time.LocalDateTime.now());
@@ -289,7 +291,9 @@ public class CartServiceImpl implements CartService {
         cartDTO.setCreatedAt(cart.getCreatedAt());
         cartDTO.setUpdatedAt(cart.getUpdatedAt());
 
-        List<CartItemDTO> cartItemDTOs = cart.getCartItems().stream()
+        // 手动从数据库查询 cartItems
+        List<CartItem> cartItems = cartItemMapper.findByCartId(cart.getId());
+        List<CartItemDTO> cartItemDTOs = cartItems.stream()
                 .map(this::mapToCartItemDTO)
                 .collect(Collectors.toList());
 
@@ -316,6 +320,10 @@ public class CartServiceImpl implements CartService {
 
         cartItemDTO.setQuantity(cartItem.getQuantity());
         cartItemDTO.setPrice(cartItem.getPrice());
+        // 计算单项总价
+        if (cartItem.getPrice() != null && cartItem.getQuantity() != null) {
+            cartItemDTO.setItemTotal(cartItem.getPrice().multiply(BigDecimal.valueOf(cartItem.getQuantity())));
+        }
 
         return cartItemDTO;
     }

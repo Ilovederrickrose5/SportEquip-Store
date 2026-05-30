@@ -1,5 +1,5 @@
 <template>
-  <div class="product-module">
+  <div class="product-module" @scroll="handleScroll" ref="productModule">
     <div class="product-content">
       <div class="product-header">
         <h2 class="product-title">商品管理</h2>
@@ -38,8 +38,12 @@
         </div>
       </div>
       
+      <!-- 搜索组件占位符（用于固定定位时保持布局） -->
+      <div class="search-placeholder" :class="{ 'show': isSearchFixed }"></div>
+      
       <!-- 搜索组件 -->
       <ProductSearch
+        :class="{ 'search-fixed': isSearchFixed }"
         v-model="searchQuery"
         :filter-category="filterCategory"
         @update:filter-category="filterCategory = $event"
@@ -196,7 +200,9 @@ export default {
       },
       productToDelete: null,
       isLoading: false,
-      errorMessage: ''
+      errorMessage: '',
+      isSearchFixed: false,
+      searchOffsetTop: 0
     };
   },
   computed: {
@@ -215,7 +221,6 @@ export default {
       
       // 统计每个商品所属的主分类
       this.products.forEach(product => {
-        // 找到商品对应的主分类
         const productCategory = this.categories.find(cat => cat.id === product.mainCategoryId);
         if (productCategory && counts.hasOwnProperty(productCategory.name)) {
           counts[productCategory.name]++;
@@ -276,6 +281,12 @@ export default {
   },
   created() {
     this.loadInitialData();
+    // 添加全局滚动监听
+    window.addEventListener('scroll', this.handleScroll);
+  },
+  beforeUnmount() {
+    // 移除滚动监听
+    window.removeEventListener('scroll', this.handleScroll);
   },
   methods: {
     async loadInitialData() {
@@ -338,7 +349,25 @@ export default {
         }
       } finally {
         this.isLoading = false;
+        // 初始化搜索区域位置
+        this.$nextTick(() => {
+          this.initSearchPosition();
+        });
       }
+    },
+    
+    // 初始化搜索区域位置
+    initSearchPosition() {
+      const searchElement = document.querySelector('.product-search-container');
+      if (searchElement) {
+        this.searchOffsetTop = searchElement.offsetTop;
+      }
+    },
+    
+    // 处理滚动事件
+    handleScroll() {
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      this.isSearchFixed = scrollTop >= this.searchOffsetTop;
     },
     
     editProduct(product) {
@@ -503,5 +532,29 @@ export default {
       justify-content: center;
     }
   }
+}
+
+// 搜索区域固定定位样式
+.search-placeholder {
+  display: none;
+  height: 80px;
+  
+  &.show {
+    display: block;
+  }
+}
+
+.search-fixed {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 40px);
+  max-width: 1200px;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  margin: 0;
+  padding: var(--spacing-lg);
+  background-color: var(--bg-white);
 }
 </style>

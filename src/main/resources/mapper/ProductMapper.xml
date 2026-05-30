@@ -35,4 +35,14 @@
         SELECT * FROM product WHERE third_category_id = #{thirdCategoryId}
     </select>
 
+    <select id="searchByName" resultType="Product">
+        SELECT * FROM product WHERE name LIKE CONCAT('%', #{keyword}, '%')
+    </select>
+
+    <select id="search" resultType="Product">
+        SELECT * FROM product 
+        WHERE name LIKE CONCAT('%', #{keyword}, '%') 
+           OR description LIKE CONCAT('%', #{keyword}, '%')
+    </select>
+
 </mapper>

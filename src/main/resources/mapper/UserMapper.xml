@@ -11,8 +11,8 @@
     </select>
 
     <insert id="insert" parameterType="User">
-        INSERT INTO user (username, email, password, phone, avatar, created_at, updated_at)
-        VALUES (#{username}, #{email}, #{password}, #{phone}, #{avatar}, #{createdAt}, #{updatedAt})
+        INSERT INTO user (username, email, password, phone, address, avatar, role, created_at, updated_at)
+        VALUES (#{username}, #{email}, #{password}, #{phone}, #{address}, #{avatar}, #{role}, #{createdAt}, #{updatedAt})
     </insert>
 
     <update id="update" parameterType="User">
@@ -21,7 +21,9 @@
         email = #{email},
         password = #{password},
         phone = #{phone},
+        address = #{address},
         avatar = #{avatar},
+        role = #{role},
         updated_at = #{updatedAt}
         WHERE id = #{id}
     </update>

@@ -53,7 +53,17 @@
     
     <!-- 密码修改部分 -->
     <div class="password-section">
-      <h3>修改密码（选填）</h3>
+      <div class="section-header">
+        <h3>修改密码（选填）</h3>
+        <button 
+          v-if="form.oldPassword || form.newPassword || form.confirmPassword"
+          @click="clearPasswordFields" 
+          class="btn-clear-password"
+        >
+          清除密码
+        </button>
+      </div>
+      <p class="section-hint">如果您只想更新手机号等基本信息，请不要填写以下密码字段。只有在您需要修改密码时才填写。</p>
       <div class="form-group">
         <label for="oldPassword">当前密码:</label>
         <input 
@@ -62,6 +72,7 @@
           v-model="form.oldPassword" 
           placeholder="请输入当前密码" 
           :class="{ 'error': errors.oldPassword }"
+          autocomplete="off"
         >
         <span v-if="errors.oldPassword" class="error-msg">{{ errors.oldPassword }}</span>
       </div>
@@ -74,6 +85,7 @@
           v-model="form.newPassword" 
           placeholder="请输入新密码" 
           :class="{ 'error': errors.newPassword }"
+          autocomplete="new-password"
         >
         <span 
           v-if="passwordStrengthMessage" 
@@ -93,6 +105,7 @@
           v-model="form.confirmPassword" 
           placeholder="请再次输入新密码" 
           :class="{ 'error': errors.confirmPassword }"
+          autocomplete="new-password"
         >
         <span v-if="errors.confirmPassword" class="error-msg">{{ errors.confirmPassword }}</span>
       </div>
@@ -158,6 +171,7 @@ export default {
   },
   methods: {
     initializeForm(userData) {
+      // 初始化表单数据，密码字段始终清空
       this.form = {
         username: userData.username || '',
         email: userData.email || '',
@@ -174,9 +188,10 @@ export default {
       
       if (Object.keys(validationErrors).length === 0) {
         // 发送表单数据给父组件
+        // 只有填写了新密码才视为需要修改密码
         this.$emit('submit', {
           ...this.form,
-          needsPasswordChange: !!(this.form.oldPassword || this.form.newPassword || this.form.confirmPassword)
+          needsPasswordChange: !!(this.form.newPassword || this.form.confirmPassword)
         })
       } else {
         this.$emit('validation-error', validationErrors)
@@ -216,8 +231,11 @@ export default {
         errors.address = '地址长度不能超过255个字符'
       }
       
-      // 密码验证（如果填写了任何密码字段，都需要验证）
-      if ((this.form.oldPassword || this.form.newPassword || this.form.confirmPassword)) {
+      // 密码验证（只有在需要修改密码时才验证）
+      // 规则：只有填写了新密码才视为要修改密码
+      // 如果只填写当前密码，视为身份验证，不做密码修改
+      if (this.form.newPassword || this.form.confirmPassword) {
+        // 如果要修改密码，必须填写当前密码
         if (!this.form.oldPassword.trim()) {
           errors.oldPassword = '请输入当前密码'
         }
@@ -234,6 +252,8 @@ export default {
           errors.confirmPassword = '两次输入的密码不一致'
         }
       }
+      // 如果只填了当前密码，不验证其他密码字段（视为身份验证）
+      // 当前密码单独填写时不需要验证新密码
       
       return errors
     },
@@ -285,6 +305,15 @@ export default {
       this.initializeForm(this.userData)
       this.passwordStrengthMessage = ''
       this.passwordStrengthClass = ''
+    },
+    
+    // 清除所有密码字段
+    clearPasswordFields() {
+      this.form.oldPassword = ''
+      this.form.newPassword = ''
+      this.form.confirmPassword = ''
+      this.passwordStrengthMessage = ''
+      this.passwordStrengthClass = ''
     }
   }
 }
@@ -309,11 +338,41 @@ export default {
     padding-top: var(--spacing-md);
     border-top: 1px solid var(--border-color);
     
-    h3 {
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--spacing-sm);
+      
+      h3 {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: var(--font-size-md);
+        font-weight: 600;
+      }
+      
+      .btn-clear-password {
+        background-color: transparent;
+        color: var(--danger-color);
+        border: 1px solid var(--danger-color);
+        padding: 4px 12px;
+        border-radius: var(--border-radius);
+        font-size: var(--font-size-xs);
+        cursor: pointer;
+        transition: all var(--transition-default);
+        
+        &:hover {
+          background-color: var(--danger-color);
+          color: white;
+        }
+      }
+    }
+    
+    .section-hint {
       margin: 0 0 var(--spacing-md) 0;
-      color: var(--text-secondary);
-      font-size: var(--font-size-md);
-      font-weight: 600;
+      color: var(--text-muted);
+      font-size: var(--font-size-xs);
+      font-style: italic;
     }
     
     display: flex;
