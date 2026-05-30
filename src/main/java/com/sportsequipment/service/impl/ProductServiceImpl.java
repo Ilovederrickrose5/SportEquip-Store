@@ -59,6 +59,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
+    // 没有设置过期时间，永不过期，用于缓存商品详情
     @Cacheable(value = "product:detail", key = "#id")
     public ProductDTO getProductById(Long id) {
         // 验证参数是否为空

@@ -228,7 +228,7 @@ public class CartServiceImpl implements CartService {
     @Transactional
     public CartDTO removeFromCart(Long cartItemId) {
         User user = getCurrentUser();
-        // 细粒度锁：锁用户+购物车项ID，不同商品项可并发操作
+        // 细粒度锁：锁用户+购物车项ID，不同商品项可并发操作。
         String lockKey = "cart:lock:" + user.getId() + ":item:" + cartItemId;
 
         try {

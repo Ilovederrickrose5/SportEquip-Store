@@ -211,6 +211,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional
+    // 永不过期，用于缓存三级分类详情
     @CacheEvict(value = { "category:list", "category:main", "category:sub", "category:third" }, allEntries = true)
     public ThirdCategory updateThirdCategory(Long id, ThirdCategory thirdCategory) {
         // 分布式锁，防止缓存击穿（锁三级分类ID）
