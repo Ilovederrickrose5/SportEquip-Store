@@ -11,7 +11,16 @@
       <div class="container">
         <!-- 搜索结果头部 -->
         <div class="search-header">
-          <h2 class="search-title">搜索结果</h2>
+          <div class="header-top">
+            <h2 class="search-title">搜索结果</h2>
+            <button class="refresh-btn" @click="goBackHome" title="返回首页">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <path d="M4 20h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z"></path>
+              </svg>
+              <span>返回首页</span>
+            </button>
+          </div>
           <p class="search-count" v-if="searchQuery">
             为您找到 <span>{{ products.length }}</span> 个与 "{{ searchQuery }}" 相关的商品
           </p>
@@ -25,11 +34,15 @@
           <input 
             type="text" 
             v-model="localSearchQuery"
-            placeholder="输入关键词搜索..."
             class="search-input"
             @keyup.enter="handleSearch"
           >
-          <button class="search-btn" @click="handleSearch">🔍</button>
+          <button class="search-btn" @click="handleSearch">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </button>
         </div>
         
         <!-- 加载状态 -->
@@ -47,7 +60,12 @@
         
         <!-- 无结果状态 -->
         <div v-else class="no-results">
-          <div class="no-results-icon">🔍</div>
+          <div class="no-results-icon">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </div>
           <h3>未找到相关商品</h3>
           <p>试试其他关键词，或者浏览我们的分类</p>
           <div class="category-suggestions">
@@ -154,6 +172,11 @@ export default {
       this.$router.push(path);
     },
     
+    // 返回首页
+    goBackHome() {
+      this.$router.push('/');
+    },
+    
     // 添加到购物车
     handleAddToCart(productId, quantity) {
       console.log('Add to cart:', productId, quantity);
@@ -179,14 +202,39 @@ export default {
 }
 
 .search-header {
-  text-align: center;
   margin-bottom: 30px;
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
 }
 
 .search-title {
   font-size: 28px;
   color: #333;
-  margin: 0 0 10px 0;
+  margin: 0;
+}
+
+.refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #666;
+  transition: all 0.3s;
+}
+
+.refresh-btn:hover {
+  background-color: #1e90ff;
+  border-color: #1e90ff;
+  color: white;
 }
 
 .search-count {
@@ -213,7 +261,7 @@ export default {
   flex: 1;
   padding: 12px 20px;
   border: 2px solid #1e90ff;
-  border-radius: 25px 0 0 25px;
+  border-right: none;
   font-size: 16px;
   outline: none;
 }
@@ -226,16 +274,18 @@ export default {
 .search-btn {
   background-color: #1e90ff;
   color: white;
-  border: none;
-  padding: 0 25px;
-  border-radius: 0 25px 25px 0;
+  border: 2px solid #1e90ff;
+  padding: 0 20px;
   cursor: pointer;
-  font-size: 18px;
   transition: background-color 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .search-btn:hover {
   background-color: #1077cc;
+  border-color: #1077cc;
 }
 
 .loading-indicator {
