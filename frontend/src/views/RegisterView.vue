@@ -289,8 +289,8 @@ export default {
   }
   
   &:focus {
-    border-color: #4CAF50;
-    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+    border-color: #666;
+    box-shadow: 0 0 0 2px rgba(102, 102, 102, 0.2);
   }
 }
 
@@ -299,7 +299,7 @@ export default {
 }
 
 .register-btn {
-  background-color: #2d5a2d !important;
+  background-color: #333 !important;
   border: none !important;
   height: 48px !important;
   font-size: 16px !important;
@@ -307,7 +307,7 @@ export default {
   border-radius: 0 !important;
   
   &:hover:not(:disabled) {
-    background-color: #3a6b3a !important;
+    background-color: #555 !important;
   }
   
   &:disabled {
@@ -329,7 +329,7 @@ export default {
   font-size: 14px;
   
   .link {
-    color: #4CAF50;
+    color: #666;
     text-decoration: none;
     
     &:hover {

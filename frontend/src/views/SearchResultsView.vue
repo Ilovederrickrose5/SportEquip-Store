@@ -232,8 +232,8 @@ export default {
 }
 
 .refresh-btn:hover {
-  background-color: #1e90ff;
-  border-color: #1e90ff;
+  background-color: #333;
+  border-color: #333;
   color: white;
 }
 
@@ -243,7 +243,7 @@ export default {
   margin: 0;
   
   span {
-    color: #1e90ff;
+    color: #333;
     font-weight: bold;
   }
 }
@@ -341,8 +341,8 @@ export default {
 }
 
 .category-btn:hover {
-  background-color: #1e90ff;
+  background-color: #333;
   color: white;
-  border-color: #1e90ff;
+  border-color: #333;
 }
 </style>

@@ -58,16 +58,7 @@ export default {
 .search-container {
   display: flex;
   align-items: center;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.logo-title {
-  margin: 0;
-  color: var(--primary-color);
-  font-size: 32px;
-  text-align: center;
-  font-weight: bold;
+  justify-content: center;
 }
 
 .search-bar {

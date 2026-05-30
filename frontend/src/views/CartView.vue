@@ -256,14 +256,14 @@ export default {
 }
 
 .back-to-home-btn {
-  background-color: var(--color-success, #4CAF50);
-  border-color: var(--color-success, #4CAF50);
+  background-color: var(--color-success, #333);
+  border-color: var(--color-success, #333);
   padding: 10px 20px;
   font-size: 14px;
 
   &:hover {
-    background-color: var(--color-success-hover, #45a049);
-    border-color: var(--color-success-hover, #45a049);
+    background-color: var(--color-success-hover, #555);
+    border-color: var(--color-success-hover, #555);
   }
 }
 

@@ -91,7 +91,7 @@ export default {
       &:focus {
         outline: none;
         border-color: var(--primary-color);
-        box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
+        box-shadow: 0 0 0 2px rgba(51, 51, 51, 0.1);
       }
 
       &:invalid {

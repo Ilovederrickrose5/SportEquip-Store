@@ -108,7 +108,7 @@ export default {
     transition: background-color var(--transition-fast);
 
     &:hover {
-      background-color: rgba(46, 125, 50, 0.2);
+      background-color: rgba(51, 51, 51, 0.2);
     }
   }
 }

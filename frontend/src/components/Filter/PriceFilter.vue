@@ -100,7 +100,7 @@ export default {
   width: 100%;
   padding: 8px 15px;
   margin-top: 10px;
-  background-color: var(--primary-color, #4CAF50);
+  background-color: var(--primary-color, #333);
   color: white;
   border: none;
   border-radius: 4px;
@@ -110,6 +110,6 @@ export default {
 }
 
 .apply-price-btn:hover {
-  background-color: var(--primary-dark, #45a049);
+  background-color: var(--primary-dark, #555);
 }
 </style>

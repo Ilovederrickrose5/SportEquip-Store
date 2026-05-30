@@ -211,19 +211,19 @@ export default {
   background-color: var(--primary-hover);
   color: white;
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(30, 144, 255, 0.3);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .active-link {
   background-color: var(--primary-color);
   color: white;
-  box-shadow: 0 4px 8px rgba(30, 144, 255, 0.3);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .nav-link:active {
   background-color: var(--primary-dark);
   transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(30, 144, 255, 0.3);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 /* 个人中心相关样式已移至UserProfileDropdown组件 */
@@ -238,18 +238,18 @@ export default {
   border-radius: var(--border-radius-round);
   cursor: pointer;
   transition: var(--transition-default);
-  box-shadow: 0 4px 8px rgba(30, 144, 255, 0.3);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .login-btn:hover {
   background-color: var(--primary-dark);
   transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(30, 144, 255, 0.4);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
 }
 
 .login-btn:active {
   transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(30, 144, 255, 0.3);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 /* 响应式设计 */

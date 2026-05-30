@@ -55,7 +55,7 @@ export default {
   transition: box-shadow var(--transition-fast);
 
   &:focus-within {
-    box-shadow: 0 2px 6px rgba(76, 175, 80, 0.2);
+    box-shadow: 0 2px 6px rgba(51, 51, 51, 0.2);
   }
 
   .search-input {
