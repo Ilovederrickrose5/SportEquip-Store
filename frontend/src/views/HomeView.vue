@@ -248,9 +248,9 @@ export default {
 }
 </script>
 
-<style>
+<style lang="scss">
 /* 全局导入变量 */
-@use '../assets/css/variables.scss' as *;
+@import '../assets/css/variables.scss';
 
 .sports-store {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
