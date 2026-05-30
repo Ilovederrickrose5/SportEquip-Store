@@ -45,4 +45,8 @@
            OR description LIKE CONCAT('%', #{keyword}, '%')
     </select>
 
+    <select id="selectRandomProducts" resultType="Product">
+        SELECT * FROM product ORDER BY RAND() LIMIT #{limit}
+    </select>
+
 </mapper>

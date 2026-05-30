@@ -23,4 +23,6 @@ public interface ProductMapper {
     List<Product> searchByName(String keyword);
 
     List<Product> search(String keyword);
+
+    List<Product> selectRandomProducts(int limit);
 }

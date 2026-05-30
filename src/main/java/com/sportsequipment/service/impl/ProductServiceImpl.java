@@ -140,6 +140,17 @@ public class ProductServiceImpl implements ProductService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductDTO> getRandomProducts(int limit) {
+        if (limit <= 0) {
+            limit = 8;
+        }
+        return productMapper.selectRandomProducts(limit).stream()
+                .map(this::mapToProductDTO)
+                .collect(Collectors.toList());
+    }
+
     // 转换实体到DTO
     private ProductDTO mapToProductDTO(Product product) {
         if (product == null) {

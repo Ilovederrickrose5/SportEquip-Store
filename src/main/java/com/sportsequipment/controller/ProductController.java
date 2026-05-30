@@ -80,5 +80,12 @@ public class ProductController {
         productService.deleteProduct(id);
         return ResponseEntity.noContent().build();
     }
+
+    // 获取随机推荐商品
+    @GetMapping("/random")
+    public ResponseEntity<List<ProductDTO>> getRandomProducts(
+            @RequestParam(defaultValue = "8") Integer limit) {
+        return ResponseEntity.ok(productService.getRandomProducts(limit));
+    }
 }
     

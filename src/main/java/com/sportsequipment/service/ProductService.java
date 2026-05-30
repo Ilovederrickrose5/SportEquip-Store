@@ -7,11 +7,18 @@ import java.util.List;
 
 public interface ProductService {
     List<ProductDTO> getAllProducts();
+
     ProductDTO getProductById(Long id);
+
     List<ProductDTO> getProductsByPage(int page, int size);
+
     ProductDTO createProduct(Product product);
+
     ProductDTO updateProduct(Long id, Product product);
+
     void deleteProduct(Long id);
+
     List<ProductDTO> searchProducts(String keyword);
+
+    List<ProductDTO> getRandomProducts(int limit);
 }
-    

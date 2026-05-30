@@ -132,13 +132,14 @@ export default {
     async loadRecommendedProducts() {
       this.loadingRecommendedProducts = true;
       try {
-        // 获取所有商品，然后筛选出一部分作为推荐
-        // 如果有搜索参数，传递给服务进行搜索
-        const allProducts = await ProductService.getAllProducts(this.searchQuery);
-        
-        // 简单的推荐逻辑：取前8个商品作为推荐
-        // 实际应用中可以根据用户历史行为、热门商品等进行更复杂的推荐算法
-        this.recommendedProducts = allProducts.slice(0, 8);
+        // 如果有搜索参数，使用搜索功能
+        if (this.searchQuery && this.searchQuery.trim()) {
+          const searchResults = await ProductService.searchProducts(this.searchQuery);
+          this.recommendedProducts = searchResults.slice(0, 8);
+        } else {
+          // 使用随机推荐API获取随机商品
+          this.recommendedProducts = await ProductService.getRandomProducts(8);
+        }
       } catch (error) {
         console.error('加载推荐商品失败:', error);
         // 显示一些默认推荐商品作为备选

@@ -186,6 +186,38 @@ class ProductService {
     }
   }
 
+  // 获取随机推荐商品
+  async getRandomProducts(limit = 8) {
+    try {
+      const url = `${API_ENDPOINTS.products.getAll}/random?limit=${limit}`
+
+      console.log('ProductService.getRandomProducts() - 准备调用随机推荐API:', url);
+      console.log('请求URL:', this.api.defaults.baseURL + url);
+
+      const startTime = Date.now();
+      const response = await this.api.get(url)
+      const endTime = Date.now();
+
+      console.log('ProductService.getRandomProducts() - API调用成功');
+      console.log('响应状态:', response.status);
+      console.log('响应数据数量:', Array.isArray(response.data) ? response.data.length : '对象');
+      console.log('请求耗时:', endTime - startTime, 'ms');
+
+      return response.data
+    } catch (error) {
+      console.error('ProductService.getRandomProducts() - 获取随机推荐商品失败:', error);
+      if (error.response) {
+        console.error('错误响应状态:', error.response.status);
+        console.error('错误响应数据:', error.response.data);
+      } else if (error.request) {
+        console.error('请求已发送但没有收到响应:', error.request);
+      } else {
+        console.error('请求配置错误:', error.message);
+      }
+      throw error
+    }
+  }
+
   // 获取所有分类
   async getAllCategories() {
     try {
