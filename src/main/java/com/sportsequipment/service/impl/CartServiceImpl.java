@@ -112,7 +112,7 @@ public class CartServiceImpl implements CartService {
         }
 
         User user = getCurrentUser();
-        // 细粒度锁：锁用户+商品ID，不同商品可并发操作
+        // 细粒度锁，锁类型：用户 + 商品 ID 复合细粒度锁，用于用户添加商品到购物车时的并发操作。
         String lockKey = "cart:lock:" + user.getId() + ":product:" + productId;
 
         try {
@@ -179,7 +179,7 @@ public class CartServiceImpl implements CartService {
         }
 
         User user = getCurrentUser();
-        // 细粒度锁：锁用户+购物车项ID，不同商品项可并发操作
+        // 细粒度锁，锁类型：用户 + 购物项 ID 复合细粒度锁，用于用户更新购物车项时的并发操作。
         String lockKey = "cart:lock:" + user.getId() + ":item:" + cartItemId;
 
         try {
@@ -228,7 +228,7 @@ public class CartServiceImpl implements CartService {
     @Transactional
     public CartDTO removeFromCart(Long cartItemId) {
         User user = getCurrentUser();
-        // 细粒度锁：锁用户+购物车项ID，不同商品项可并发操作。
+        // 细粒度锁，锁类型：用户 + 购物项 ID 复合细粒度锁，用于用户从购物车中移除商品时的并发操作。
         String lockKey = "cart:lock:" + user.getId() + ":item:" + cartItemId;
 
         try {
@@ -266,6 +266,7 @@ public class CartServiceImpl implements CartService {
     @Transactional
     public void clearCart() {
         User user = getCurrentUser();
+        // 粗粒度锁，锁类型：用户 ID，用于用户清除购物车时的并发操作。
         String lockKey = "cart:lock:" + user.getId();
 
         try {
