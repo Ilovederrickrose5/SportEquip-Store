@@ -8,12 +8,16 @@
         <div class="search-bar">
           <input 
             type="text" 
-            placeholder="搜索运动装备..." 
             class="search-input"
             v-model="searchQuery"
             @keyup.enter="handleSearch"
           >
-          <button class="search-btn" @click="handleSearch">🔍</button>
+          <button class="search-btn" @click="handleSearch">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </button>
         </div>
       </div>
     </div>
@@ -77,38 +81,40 @@ export default {
 
 .search-input {
   flex: 1;
-  padding: 12px 20px;
-  border: 2px solid var(--primary-color);
-  border-radius: 20px 0 0 20px;
+  padding: 12px 15px;
+  border: 1px solid #333;
+  border-right: none;
   font-size: 16px;
   outline: none;
-  height: 44px;
+  height: 42px;
   box-sizing: border-box;
+  background-color: #fff;
+  color: #333;
 }
 
 .search-input:focus {
-  border-color: var(--primary-dark);
-  box-shadow: 0 0 0 3px rgba(30, 144, 255, 0.2);
+  border-color: #666;
 }
 
 .search-btn {
-  background-color: var(--primary-color);
-  color: white;
-  border: none;
-  padding: 0 30px;
-  border-radius: 0 20px 20px 0;
+  background-color: #333;
+  color: #fff;
+  border: 1px solid #333;
+  border-left: none;
+  padding: 0 18px;
   cursor: pointer;
-  font-size: 18px;
-  transition: background-color 0.3s;
-  height: 44px;
-  width: 40px;
+  transition: all 0.3s;
+  height: 42px;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 0;
 }
 
 .search-btn:hover {
-  background-color: var(--primary-dark);
+  background-color: #555;
+  border-color: #555;
 }
 
 /* 响应式设计 */

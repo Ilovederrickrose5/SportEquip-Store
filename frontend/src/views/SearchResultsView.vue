@@ -259,33 +259,40 @@ export default {
 
 .search-input {
   flex: 1;
-  padding: 12px 20px;
-  border: 2px solid #1e90ff;
+  padding: 12px 15px;
+  border: 1px solid #333;
   border-right: none;
   font-size: 16px;
   outline: none;
+  background-color: #fff;
+  color: #333;
+  height: 42px;
+  box-sizing: border-box;
 }
 
 .search-input:focus {
-  border-color: #1077cc;
-  box-shadow: 0 0 0 3px rgba(30, 144, 255, 0.2);
+  border-color: #666;
 }
 
 .search-btn {
-  background-color: #1e90ff;
-  color: white;
-  border: 2px solid #1e90ff;
-  padding: 0 20px;
+  background-color: #333;
+  color: #fff;
+  border: 1px solid #333;
+  border-left: none;
+  padding: 0 18px;
   cursor: pointer;
-  transition: background-color 0.3s;
+  transition: all 0.3s;
   display: flex;
   align-items: center;
   justify-content: center;
+  height: 42px;
+  box-sizing: border-box;
+  border-radius: 0;
 }
 
 .search-btn:hover {
-  background-color: #1077cc;
-  border-color: #1077cc;
+  background-color: #555;
+  border-color: #555;
 }
 
 .loading-indicator {
