@@ -14,6 +14,7 @@ const FitnessTrainingView = () => import('../views/FitnessTrainingView.vue')
 const CyclingSportsView = () => import('../views/CyclingSportsView.vue')
 const CartView = () => import('../views/CartView.vue')
 const MyOrdersView = () => import('../views/MyOrdersView.vue')
+const SearchResultsView = () => import('../views/SearchResultsView.vue')
 
 // 路由守卫 - 检查是否已登录
 const requireAuth = (to, from, next) => {
@@ -32,7 +33,7 @@ const requireAdmin = (to, from, next) => {
     next({ name: 'login' }) // 未登录，重定向到登录页
     return
   }
-  
+
   const user = JSON.parse(localStorage.getItem('user'))
   if (user && user.role === 'ADMIN') {
     next() // 是管理员，允许访问
@@ -112,6 +113,11 @@ const routes = [
     name: 'admin-orders',
     component: AdminOrderManagementView,
     beforeEnter: requireAdmin
+  },
+  {
+    path: '/search',
+    name: 'search',
+    component: SearchResultsView
   }
 ]
 

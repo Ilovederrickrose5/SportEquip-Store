@@ -12,7 +12,7 @@ class ProductService {
         'Accept': 'application/json'
       }
     })
-    
+
     // 添加请求拦截器获取token
     this.api.interceptors.request.use(config => {
       const token = localStorage.getItem('token')
@@ -22,27 +22,27 @@ class ProductService {
       return config
     })
   }
-  
+
   // 获取所有产品
   async getAllProducts(searchQuery = null) {
     try {
-      const url = searchQuery 
+      const url = searchQuery
         ? `${API_ENDPOINTS.products.getAll}?search=${encodeURIComponent(searchQuery)}`
         : API_ENDPOINTS.products.getAll;
-      
+
       console.log('ProductService.getAllProducts() - 准备调用API:', url);
       console.log('请求URL:', this.api.defaults.baseURL + url);
-      
+
       const startTime = Date.now();
       const response = await this.api.get(url)
       const endTime = Date.now();
-      
+
       console.log('ProductService.getAllProducts() - API调用成功');
       console.log('响应状态:', response.status);
       console.log('响应数据类型:', typeof response.data);
       console.log('响应数据长度:', Array.isArray(response.data) ? response.data.length : '对象');
       console.log('请求耗时:', endTime - startTime, 'ms');
-      
+
       return response.data
     } catch (error) {
       console.error('ProductService.getAllProducts() - 获取产品列表失败:', error);
@@ -57,7 +57,7 @@ class ProductService {
       throw error
     }
   }
-  
+
   // 根据ID获取产品详情
   async getProductById(id) {
     try {
@@ -68,7 +68,7 @@ class ProductService {
       throw error
     }
   }
-  
+
   // 分页获取产品
   async getProductsByPage(page = 0, size = 10) {
     try {
@@ -79,7 +79,7 @@ class ProductService {
       throw error
     }
   }
-  
+
   // 创建新商品（需要管理员权限）
   async createProduct(productData) {
     try {
@@ -94,7 +94,7 @@ class ProductService {
       throw error
     }
   }
-  
+
   // 更新商品（需要管理员权限）
   async updateProduct(id, productData) {
     try {
@@ -109,7 +109,7 @@ class ProductService {
       throw error
     }
   }
-  
+
   // 删除商品（需要管理员权限）
   async deleteProduct(id) {
     try {
@@ -124,24 +124,24 @@ class ProductService {
       throw error
     }
   }
-  
+
   // 上传商品图片（需要管理员权限）
   async uploadProductImage(file, customName = null) {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      
+
       // 如果提供了自定义文件名，则添加到formData中
       if (customName) {
         formData.append('customName', customName)
       }
-      
+
       const response = await this.api.post('/files/upload/product', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
       })
-      
+
       return response.data
     } catch (error) {
       console.error('ProductService.uploadProductImage() - 上传商品图片失败:', error)
@@ -152,20 +152,53 @@ class ProductService {
       throw error
     }
   }
-  
+
+  // 搜索商品
+  async searchProducts(keyword) {
+    try {
+      const url = `${API_ENDPOINTS.products.getAll}?search=${encodeURIComponent(keyword)}`
+
+      console.log('ProductService.searchProducts() - 准备调用搜索API:', url);
+      console.log('请求URL:', this.api.defaults.baseURL + url);
+
+      const startTime = Date.now();
+      const response = await this.api.get(url)
+      const endTime = Date.now();
+
+      console.log('ProductService.searchProducts() - API调用成功');
+      console.log('响应状态:', response.status);
+      console.log('搜索关键词:', keyword);
+      console.log('搜索结果数量:', Array.isArray(response.data) ? response.data.length : '对象');
+      console.log('请求耗时:', endTime - startTime, 'ms');
+
+      return response.data
+    } catch (error) {
+      console.error('ProductService.searchProducts() - 搜索商品失败:', error);
+      if (error.response) {
+        console.error('错误响应状态:', error.response.status);
+        console.error('错误响应数据:', error.response.data);
+      } else if (error.request) {
+        console.error('请求已发送但没有收到响应:', error.request);
+      } else {
+        console.error('请求配置错误:', error.message);
+      }
+      throw error
+    }
+  }
+
   // 获取所有分类
   async getAllCategories() {
     try {
       console.log('ProductService.getAllCategories() - 准备调用API: /categories');
       console.log('请求URL:', this.api.defaults.baseURL + '/categories');
-      
+
       const response = await this.api.get('/categories')
-      
+
       console.log('ProductService.getAllCategories() - API调用成功');
       console.log('响应状态:', response.status);
       console.log('响应数据类型:', typeof response.data);
       console.log('响应数据长度:', Array.isArray(response.data) ? response.data.length : '对象');
-      
+
       return response.data
     } catch (error) {
       console.error('ProductService.getAllCategories() - 获取分类列表失败:', error);

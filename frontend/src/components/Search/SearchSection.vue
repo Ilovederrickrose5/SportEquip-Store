@@ -34,11 +34,10 @@ export default {
       if (this.searchQuery.trim()) {
         const query = this.searchQuery.trim();
         
-        // 直接跳转到首页进行全局模糊搜索
-        // 搜索参数会传递给后端进行名称和描述的模糊匹配
+        // 直接跳转到搜索结果页面
         this.$router.push({
-          path: '/',
-          query: { search: query }
+          path: '/search',
+          query: { keyword: query }
         });
       }
     }
