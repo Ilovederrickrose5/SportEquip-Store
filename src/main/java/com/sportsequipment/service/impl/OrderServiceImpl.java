@@ -14,6 +14,7 @@ import com.sportsequipment.mapper.ProductMapper;
 import com.sportsequipment.mapper.UserMapper;
 import com.sportsequipment.security.UserDetailsImpl;
 import com.sportsequipment.service.OrderService;
+import com.sportsequipment.util.RedisUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -22,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -38,6 +40,9 @@ public class OrderServiceImpl implements OrderService {
 
     @Autowired
     private ProductMapper productMapper;
+
+    @Autowired
+    private RedisUtil redisUtil;
 
     @Override
     @Transactional(readOnly = true)
@@ -148,27 +153,51 @@ public class OrderServiceImpl implements OrderService {
         order.setTotalAmount(totalAmountWrapper[0]);
         orderMapper.insert(order);
 
-        // 再插入订单项并更新库存
+        // 再插入订单项并更新库存（使用分布式锁防止并发超卖）
         for (OrderItemDTO itemDTO : dtoItems) {
             Long productId = itemDTO.getProductId();
-            Product product = productMapper.findById(productId);
 
-            // 减少库存
-            product.setStock(product.getStock() - itemDTO.getQuantity());
-            product.setUpdatedAt(java.time.LocalDateTime.now());
-            productMapper.update(product);
+            // 分布式锁，防止并发扣库存导致超卖
+            String lockKey = "lock:product:" + productId;
+            try {
+                boolean locked = redisUtil.tryLock(lockKey, 10, 30, TimeUnit.SECONDS);
+                if (!locked) {
+                    throw new RuntimeException("系统繁忙，请稍后再试");
+                }
 
-            // 创建订单项
-            OrderItem orderItem = new OrderItem();
-            orderItem.setOrder(order);
-            orderItem.setOrderId(order.getId());
-            orderItem.setProduct(product);
-            orderItem.setProductId(productId);
-            orderItem.setQuantity(itemDTO.getQuantity());
-            orderItem.setPrice(product.getPrice());
+                // 再次检查库存（双重检查）
+                Product product = productMapper.findById(productId);
+                if (product == null) {
+                    throw new ResourceNotFoundException("Product not found with id: " + productId);
+                }
 
-            // 插入订单项
-            orderItemMapper.insert(orderItem);
+                if (product.getStock() < itemDTO.getQuantity()) {
+                    throw new IllegalArgumentException("库存不足：" + product.getName() + "（剩余：" + product.getStock() + "）");
+                }
+
+                // 减少库存
+                product.setStock(product.getStock() - itemDTO.getQuantity());
+                product.setUpdatedAt(java.time.LocalDateTime.now());
+                productMapper.update(product);
+
+                // 清除商品缓存，保证缓存一致性
+                redisUtil.delete("product:detail::" + productId);
+
+                // 创建订单项
+                OrderItem orderItem = new OrderItem();
+                orderItem.setOrder(order);
+                orderItem.setOrderId(order.getId());
+                orderItem.setProduct(product);
+                orderItem.setProductId(productId);
+                orderItem.setQuantity(itemDTO.getQuantity());
+                orderItem.setPrice(product.getPrice());
+
+                // 插入订单项
+                orderItemMapper.insert(orderItem);
+
+            } finally {
+                redisUtil.unlock(lockKey);
+            }
         }
 
         return mapToOrderDTO(order);
