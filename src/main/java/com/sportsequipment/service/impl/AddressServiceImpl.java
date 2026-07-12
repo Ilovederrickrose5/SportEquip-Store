@@ -1,6 +1,5 @@
 package com.sportsequipment.service.impl;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,8 +15,11 @@ import java.util.Optional;
 @Service
 public class AddressServiceImpl implements AddressService {
 
-    @Autowired
-    private AddressMapper addressMapper;
+    private final AddressMapper addressMapper;
+
+    public AddressServiceImpl(AddressMapper addressMapper) {
+        this.addressMapper = addressMapper;
+    }
 
     @Override
     public Address createAddress(Address address) {

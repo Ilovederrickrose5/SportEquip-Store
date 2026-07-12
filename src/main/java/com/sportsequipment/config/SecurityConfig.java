@@ -2,6 +2,8 @@ package com.sportsequipment.config;
 
 import com.sportsequipment.security.JwtAuthEntryPoint;
 import com.sportsequipment.security.JwtAuthTokenFilter;
+import com.sportsequipment.security.JwtUtils;
+import com.sportsequipment.security.UserDetailsServiceImpl;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -28,17 +30,23 @@ import java.util.Collections;
 public class SecurityConfig {
 
     private final JwtAuthEntryPoint unauthorizedHandler;
+    private final JwtUtils jwtUtils;
+    private final UserDetailsServiceImpl userDetailsService;
 
     @Value("${cors.allowed-origins}")
     private String allowedOrigins;
 
-    public SecurityConfig(JwtAuthEntryPoint unauthorizedHandler) {
+    public SecurityConfig(JwtAuthEntryPoint unauthorizedHandler,
+            JwtUtils jwtUtils,
+            UserDetailsServiceImpl userDetailsService) {
         this.unauthorizedHandler = unauthorizedHandler;
+        this.jwtUtils = jwtUtils;
+        this.userDetailsService = userDetailsService;
     }
 
     @Bean
     public JwtAuthTokenFilter authenticationJwtTokenFilter() {
-        return new JwtAuthTokenFilter();
+        return new JwtAuthTokenFilter(jwtUtils, userDetailsService);
     }
 
     @Bean

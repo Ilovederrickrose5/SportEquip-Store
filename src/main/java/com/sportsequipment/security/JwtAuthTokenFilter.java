@@ -2,7 +2,6 @@ package com.sportsequipment.security;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -19,27 +18,30 @@ import java.io.IOException;
 
 public class JwtAuthTokenFilter extends OncePerRequestFilter {
 
-    @Autowired
-    private JwtUtils jwtUtils;
-
-    @Autowired
-    private UserDetailsServiceImpl userDetailsService;
+    private final JwtUtils jwtUtils;
+    private final UserDetailsServiceImpl userDetailsService;
 
     private static final Logger logger = LoggerFactory.getLogger(JwtAuthTokenFilter.class);
 
+    public JwtAuthTokenFilter(JwtUtils jwtUtils, UserDetailsServiceImpl userDetailsService) {
+        this.jwtUtils = jwtUtils;
+        this.userDetailsService = userDetailsService;
+    }
+
     @Override
-    protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain)
+    protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
+            @NonNull FilterChain filterChain)
             throws ServletException, IOException {
         try {
             logger.debug("处理请求: {}", request.getRequestURI());
-            
+
             String jwt = parseJwt(request);
             logger.debug("从请求头解析JWT: {}", jwt != null ? "已找到" : "未找到");
-            
+
             if (jwt != null) {
                 boolean isValid = jwtUtils.validateJwtToken(jwt);
                 logger.debug("JWT验证结果: {}", isValid ? "有效" : "无效");
-                
+
                 if (isValid) {
                     String username = jwtUtils.getUserNameFromJwtToken(jwt);
                     logger.info("JWT验证成功，用户名: {}", username);
@@ -64,7 +66,7 @@ public class JwtAuthTokenFilter extends OncePerRequestFilter {
 
     private String parseJwt(HttpServletRequest request) {
         String headerAuth = request.getHeader("Authorization");
-        
+
         logger.debug("Authorization头: {}", headerAuth != null ? "已存在" : "不存在");
 
         if (headerAuth != null && StringUtils.hasText(headerAuth) && headerAuth.startsWith("Bearer ")) {

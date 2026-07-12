@@ -1,8 +1,8 @@
-# 体育用品商城系统部署说明
+# 运动装备电商系统部署说明
 
 ## 文档说明
 
-本文档提供了体育用品商城项目的详细部署指南，包括从环境准备到系统上线的完整流程。按照本文档的步骤操作，即使没有数据库文件，您也能顺利部署并运行整个系统。
+本文档提供了运动装备电商项目的详细部署指南，包括从环境准备到系统上线的完整流程。按照本文档的步骤操作，可以顺利部署并运行整个系统。
 
 ## 目录
 
@@ -20,30 +20,31 @@
 
 ## 项目架构概述
 
-- **前端**：Vue 3 + Vite + Vue Router + Pinia/Vuex + Element Plus
-- **后端**：Spring Boot 3.5.6 + Spring Data JPA + MySQL + Spring Security + JWT
-- **数据库**：MySQL 8.0
+- **前端**：Vue 3.5.22 + Vite 7.1.7 + Vue Router 4.6.3 + Pinia 3.0.4 + Element Plus 2.11.5
+- **后端**：Spring Boot 3.5.14 + MyBatis 3.0.3 + Spring Security 6.x + JWT + Redis + Redisson
+- **数据库**：MySQL 8.0+
+- **缓存**：Redis 7.0+（使用 Redisson 3.26.0 作为客户端）
 
 ## 环境要求
 
 ### 后端环境
-- JDK 17 或更高版本（项目使用Java 17编译）
-- MySQL 5.7 或更高版本（推荐MySQL 8.0）
+- JDK 17 或更高版本（项目使用 Java 17 编译）
+- MySQL 5.7 或更高版本（推荐 MySQL 8.0）
+- Redis 7.0+
+- Maven 3.6+
 - 足够的磁盘空间用于文件上传（默认上传目录需要读写权限）
 
 ### 前端环境
-- **Nginx**（推荐的生产环境Web服务器）
-- Node.js 14+（可选，用于重新构建前端）
-- npm 或 yarn（可选，用于安装前端依赖）
+- **Nginx**（推荐的生产环境 Web 服务器）
+- Node.js 18+（用于重新构建前端）
+- npm 或 yarn（用于安装前端依赖）
 
 ## 数据库配置
-
-> **重要说明**：项目代码中不包含数据库文件，您需要按照以下步骤初始化数据库。
 
 ### 第1步：创建数据库
 
 ```sql
--- 创建数据库，使用utf8mb4字符集以支持emoji表情等特殊字符
+-- 创建数据库，使用 utf8mb4 字符集以支持 emoji 表情等特殊字符
 CREATE DATABASE sport_equipment DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- 切换到创建的数据库
@@ -56,7 +57,7 @@ USE sport_equipment;
 -- 创建数据库用户（如果需要）
 CREATE USER 'root'@'localhost' IDENTIFIED BY '123456';
 
--- 授予该用户访问sport_equipment数据库的所有权限
+-- 授予该用户访问 sport_equipment 数据库的所有权限
 GRANT ALL PRIVILEGES ON sport_equipment.* TO 'root'@'localhost';
 
 -- 刷新权限使其生效
@@ -65,75 +66,69 @@ FLUSH PRIVILEGES;
 
 ### 第3步：初始化数据库表结构
 
-由于项目使用JPA，您有三种选择来创建数据库表：
+项目使用 **MyBatis** 作为 ORM 框架，**不再使用 JPA 自动建表**。您可以通过以下三种方式之一创建数据库表：
 
-#### 选项A：使用JPA自动建表（推荐开发环境）
+#### 选项A：导入 SQL 文件（推荐新手用户）
 
-1. 修改`application.properties`文件中的JPA配置：
-   ```properties
-   spring.jpa.hibernate.ddl-auto=update
-   spring.jpa.show-sql=true
-   spring.jpa.properties.hibernate.format_sql=true
-   ```
+如果项目仓库中提供了 `sport_equipment.sql` 文件，可以直接导入：
 
-2. 启动Spring Boot应用，Hibernate将根据实体类自动创建表结构
+```bash
+# Windows 命令行
+mysql -u root -p sport_equipment < sport_equipment.sql
 
-#### 选项B：手动创建表结构（推荐生产环境）
+# Linux/Mac 命令行
+mysql -u root -p sport_equipment < sport_equipment.sql
+```
+
+此 SQL 文件包含所有表结构、外键关系以及初始数据，包括管理员账号和商品分类数据。
+
+#### 选项B：参考实体类手动建表（推荐生产环境）
 
 项目包含以下实体类，您可以根据这些类手动创建表结构：
 - User（用户表）
 - Product（商品表）
-- Order（订单表）
-- OrderItem（订单项表）
-- Cart（购物车表）
-- CartItem（购物车项表）
-- Address（地址表）
-- Review（评价表）
-- Favorite（收藏表）
 - MainCategory（一级分类表）
 - SubCategory（二级分类表）
 - ThirdCategory（三级分类表）
+- Cart（购物车表）
+- CartItem（购物车项表）
+- Order（订单表）
+- OrderItem（订单项表）
+- Address（地址表）
+- Review（评价表）
+- Favorite（收藏表）
 
-#### 选项C：导入SQL文件（推荐新手用户）
+实体类位于 `src/main/java/com/sportsequipment/entity/` 目录下。
 
-项目仓库中已提供完整的数据库初始化SQL文件，您可以直接导入：
+#### 选项C：参考 MyBatis XML 文件
 
-1. 确保您已下载项目仓库，其中包含`sport_equipment.sql`文件
-2. 使用MySQL客户端或命令行导入SQL文件：
+`src/main/resources/mapper/` 目录下的 XML 映射文件包含了各表的操作 SQL，可作为建表参考。
 
-```bash
-# Windows命令行
-mysql -u root -p sport_equipment < sport_equipment.sql
+### 第4步：添加初始数据（如果不使用 SQL 文件导入）
 
-# Linux命令行
-mysql -u root -p sport_equipment < sport_equipment.sql
-```
+> **注意**：如果使用了选项 A（SQL 文件导入），这一步可以跳过。
 
-此SQL文件包含所有表结构、外键关系以及初始数据，包括管理员账号和商品分类数据。
-
-### 第4步：添加初始数据（如果不使用SQL文件导入）
-
-> **注意**：如果您使用了选项C（SQL文件导入），这一步可以跳过，因为SQL文件中已经包含了所有必要的初始数据。
-
-为了让系统正常运行，您需要添加一些基本的初始数据：
+为了让系统正常运行，需要添加一些基本初始数据：
 
 ```sql
--- 添加管理员账号（密码为123456的加密值）
-INSERT INTO user (id, username, password, email, phone, role, created_at, updated_at, is_enabled) 
-VALUES (1, 'admin', '$2a$10$L1JQl1z4fE8p2sXQz5T0/OzK8LJm5O0h1z5O8LJm5O0h1z5O8LJm5O', 'admin@example.com', '13800138000', 'ADMIN', NOW(), NOW(), true);
+-- 添加管理员账号（当前开发环境使用明文密码）
+INSERT INTO user (id, username, password, email, phone, role, created_at, updated_at) 
+VALUES (1, 'admin', '123456', 'admin@example.com', '13800138000', 'ADMIN', NOW(), NOW());
 
--- 添加一些商品分类数据
+-- 添加商品分类数据
 INSERT INTO main_category (id, name, description) VALUES (1, '运动服装', '各类运动服装');
 INSERT INTO main_category (id, name, description) VALUES (2, '运动装备', '各类运动装备');
 
 -- 后续可以根据系统需求添加更多初始数据
 ```
 
+> **生产环境注意**：必须使用 BCrypt 加密管理员密码，并修改默认账号信息。
+
 ## 后端部署
 
 ### 配置准备
 
-后端应用的主要配置项如下（在application.properties中）：
+后端应用的主要配置项如下（在 `application.properties` 中）：
 
 ```properties
 # 数据库连接信息
@@ -142,11 +137,24 @@ spring.datasource.username=root
 spring.datasource.password=123456
 spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
 
-# JPA配置
-spring.jpa.hibernate.ddl-auto=none  # 生产环境建议设置为none
-spring.jpa.show-sql=true
-spring.jpa.properties.hibernate.format_sql=true
-spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQL8Dialect
+# MyBatis 配置
+mybatis.mapper-locations=classpath:mapper/*.xml
+mybatis.type-aliases-package=com.sportsequipment.entity
+mybatis.configuration.map-underscore-to-camel-case=true
+mybatis.configuration.cache-enabled=false
+
+# Redis 配置
+spring.data.redis.host=localhost
+spring.data.redis.port=6379
+spring.data.redis.password=
+spring.data.redis.database=0
+spring.data.redis.timeout=3000ms
+
+# Redis 连接池配置
+spring.data.redis.lettuce.pool.max-active=8
+spring.data.redis.lettuce.pool.max-idle=8
+spring.data.redis.lettuce.pool.min-idle=0
+spring.data.redis.lettuce.pool.max-wait=-1ms
 
 # 文件上传配置
 file.upload-dir=d:/Users/30776/IdeaProjects/backend/uploads  # 修改为您的实际路径
@@ -157,25 +165,25 @@ server.port=8080
 server.servlet.context-path=/
 server.url=http://localhost:8080
 
-# JWT配置
+# JWT 配置
 sportsequipment.app.jwtSecret=ThisIsASecureJWTSecretKeyThatIsLongEnoughForHS512AlgorithmAndProvidesAdequateSecurityForTheApplication
 sportsequipment.app.jwtExpirationMs=86400000  # 24小时
 
 # 日志配置
 logging.level.root=INFO
-logging.level.com.sportsequipment=DEBUG
+logging.level.com.sportsequipment=INFO
 ```
 
 ### 部署步骤
 
 #### 第1步：准备文件
 
-- 确保已获得 `sport-equip-store-backend-v1.0.jar` 文件
+- 确保已通过 Maven 打包获得 JAR 文件，或直接使用源码启动
 - 创建文件上传目录（确保有读写权限）：
   ```bash
   # Windows
-  mkdir -p D:\uploads\avatar
-  mkdir -p D:\uploads\product
+  mkdir D:\uploads\avatar
+  mkdir D:\uploads\product
   
   # Linux
   mkdir -p /path/to/uploads/avatar
@@ -192,10 +200,15 @@ spring.datasource.url=jdbc:mysql://数据库IP:3306/sport_equipment?useSSL=false
 spring.datasource.username=数据库用户名
 spring.datasource.password=数据库密码
 
+# Redis 配置
+spring.data.redis.host=Redis服务器IP
+spring.data.redis.port=6379
+spring.data.redis.password=Redis密码
+
 # 文件上传目录
 file.upload-dir=/path/to/uploads  # 修改为您的实际路径
 
-# 服务器URL
+# 服务器 URL
 server.url=http://服务器IP:8080
 
 # 生产环境安全配置
@@ -208,40 +221,50 @@ sportsequipment.app.jwtSecret=您的新JWT密钥（请确保足够复杂）
 
 ```bash
 # Windows：基本启动方式
-java -jar sport-equip-store-backend-v1.0.jar
+java -jar sport-equipment-backend-0.0.1-SNAPSHOT.jar
 
 # Windows：指定外部配置文件启动
-java -jar -Dspring.config.location=D:\config\application.properties sport-equip-store-backend-v1.0.jar
+java -jar -Dspring.config.location=D:\config\application.properties sport-equipment-backend-0.0.1-SNAPSHOT.jar
 
 # Linux：基本启动方式
-java -jar sport-equip-store-backend-v1.0.jar
+java -jar sport-equipment-backend-0.0.1-SNAPSHOT.jar
 
 # Linux：指定外部配置文件启动
-java -jar -Dspring.config.location=/path/to/application.properties sport-equip-store-backend-v1.0.jar
+java -jar -Dspring.config.location=/path/to/application.properties sport-equipment-backend-0.0.1-SNAPSHOT.jar
 
 # Linux：指定端口启动
-java -jar -Dserver.port=8080 sport-equip-store-backend-v1.0.jar
+java -jar -Dserver.port=8080 sport-equipment-backend-0.0.1-SNAPSHOT.jar
 
 # Linux：后台运行
-nohup java -jar sport-equip-store-backend-v1.0.jar > backend.log 2>&1 &
+nohup java -jar sport-equipment-backend-0.0.1-SNAPSHOT.jar > backend.log 2>&1 &
 ```
+
+> **注意**：JAR 文件名可能因版本不同而变化，请以实际打包结果为准。
 
 ## 前端部署
 
 ### 准备前端文件
 
-1. 解压前端压缩包：
+1. 进入前端目录：
    ```bash
-   # Windows
-   unzip sport-equip-store-frontend-v1.0.zip -d D:\frontend
-   
-   # Linux
-   unzip sport-equip-store-frontend-v1.0.zip -d /path/to/frontend
+   cd frontend
    ```
 
-### 方法一：使用Nginx部署（推荐生产环境）
+2. 安装依赖（首次需要）：
+   ```bash
+   npm install
+   ```
 
-#### 第1步：安装Nginx
+3. 生产环境构建：
+   ```bash
+   npm run build
+   ```
+
+构建完成后会生成 `dist` 目录。
+
+### 方法一：使用 Nginx 部署（推荐生产环境）
+
+#### 第1步：安装 Nginx
 
 - **Ubuntu/Debian**: 
   ```bash
@@ -253,29 +276,29 @@ nohup java -jar sport-equip-store-backend-v1.0.jar > backend.log 2>&1 &
   sudo yum install epel-release
   sudo yum install nginx
   ```
-- **Windows**: 从Nginx官网下载并安装
+- **Windows**: 从 Nginx 官网下载并安装
 
-#### 第2步：配置Nginx
+#### 第2步：配置 Nginx
 
-创建或编辑Nginx配置文件：
+创建或编辑 Nginx 配置文件：
 
 **Linux**: `/etc/nginx/conf.d/sport-equip.conf`
-**Windows**: `nginx/conf/conf.d/sport-equip.conf`（如果不存在请创建conf.d目录）
+**Windows**: `nginx/conf/conf.d/sport-equip.conf`（如果不存在请创建 conf.d 目录）
 
 ```nginx
 server {
     listen 80;
     server_name your-domain.com; # 或使用服务器IP地址
     
-    # 前端静态资源 - Vue应用的dist目录
+    # 前端静态资源 - Vue 应用的 dist 目录
     location / {
-        root /path/to/frontend/dist; # 指向解压后的dist目录
+        root /path/to/frontend/dist; # 指向构建后的 dist 目录
         index index.html;
-        # 重要：支持Vue Router的HTML5 History模式
+        # 重要：支持 Vue Router 的 HTML5 History 模式
         try_files $uri $uri/ /index.html;
     }
     
-    # 后端API代理 - 解决跨域问题
+    # 后端 API 代理 - 解决跨域问题
     location /api {
         proxy_pass http://localhost:8080; # 指向后端服务
         proxy_set_header Host $host;
@@ -298,24 +321,24 @@ server {
 }
 ```
 
-#### 第3步：检查配置并启动Nginx
+#### 第3步：检查配置并启动 Nginx
 
 ```bash
 # 检查配置文件语法
 nginx -t
 
-# 启动或重新加载Nginx
+# 启动或重新加载 Nginx
 # Linux
 nginx -s reload
 
 # Windows
-# 在Nginx安装目录下运行：
+# 在 Nginx 安装目录下运行：
 nginx.exe -s reload
 ```
 
-### 方法二：使用Node.js工具部署（开发/测试环境）
+### 方法二：使用 Node.js 工具部署（开发/测试环境）
 
-#### 第1步：安装依赖
+#### 第1步：安装 serve 工具
 
 ```bash
 npm install -g serve
@@ -328,12 +351,12 @@ cd /path/to/frontend/dist
 serve -s -l 80
 ```
 
-#### 第3步：配置API连接
+#### 第3步：配置 API 连接
 
-编辑前端的 `.env.production` 文件，修改API基础URL：
+编辑前端的 `.env.production` 文件，修改 API 基础 URL：
 
-```javascript
-# API基础URL - 修改为您的后端服务地址
+```
+# API 基础 URL - 修改为您的后端服务地址
 VITE_API_BASE_URL=http://localhost:8080
 ```
 
@@ -343,22 +366,23 @@ VITE_API_BASE_URL=http://localhost:8080
 
 | 配置项 | 描述 | 默认值 | 是否必须修改 |
 |-------|------|--------|------------|
-| spring.datasource.url | 数据库连接URL | jdbc:mysql://localhost:3306/sport_equipment?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true | 是（如果数据库不在本地） |
+| spring.datasource.url | 数据库连接 URL | jdbc:mysql://localhost:3306/sport_equipment?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true | 是（如果数据库不在本地） |
 | spring.datasource.username | 数据库用户名 | root | 是（如果使用不同的用户） |
 | spring.datasource.password | 数据库密码 | 123456 | 是（出于安全考虑） |
-| spring.jpa.hibernate.ddl-auto | JPA表创建策略 | none | 否（开发环境可设为update） |
+| spring.data.redis.host | Redis 服务器地址 | localhost | 是（如果 Redis 不在本地） |
+| spring.data.redis.password | Redis 密码 | 空 | 是（如果 Redis 设置了密码） |
 | file.upload-dir | 文件上传目录 | d:/Users/30776/IdeaProjects/backend/uploads | 是（部署环境需要修改） |
 | file.max-size | 最大上传文件大小 | 10485760 (10MB) | 否（如需调整则修改） |
-| server.url | 服务器URL | http://localhost:8080 | 是（部署环境需要修改） |
+| server.url | 服务器 URL | http://localhost:8080 | 是（部署环境需要修改） |
 | server.port | 服务器端口 | 8080 | 否（如端口冲突则修改） |
-| sportsequipment.app.jwtSecret | JWT密钥 | [长字符串] | 是（出于安全考虑） |
-| sportsequipment.app.jwtExpirationMs | JWT过期时间 | 86400000 (24小时) | 否（如需调整则修改） |
+| sportsequipment.app.jwtSecret | JWT 密钥 | [长字符串] | 是（出于安全考虑） |
+| sportsequipment.app.jwtExpirationMs | JWT 过期时间 | 86400000 (24小时) | 否（如需调整则修改） |
 
 ### 前端环境变量
 
 前端的环境变量在 `.env.development`（开发环境）和 `.env.production`（生产环境）文件中定义：
 
-- `VITE_API_BASE_URL`：API基础URL，生产环境默认为 `/api`
+- `VITE_API_BASE_URL`：API 基础 URL，生产环境默认为 `/api`
 - `VITE_APP_TITLE`：应用标题
 
 ## 服务验证
@@ -368,7 +392,7 @@ VITE_API_BASE_URL=http://localhost:8080
 ### 第1步：验证后端服务
 
 ```bash
-# 使用curl命令测试后端API（需要后端服务已启动）
+# 使用 curl 命令测试后端 API（需要后端服务已启动）
 curl -i http://服务器IP:8080/api/products
 
 # 或直接在浏览器中访问
@@ -379,15 +403,15 @@ curl -i http://服务器IP:8080/api/products
 
 在浏览器中访问：
 ```
-http://服务器IP/  # 如果使用Nginx部署
+http://服务器IP/  # 如果使用 Nginx 部署
 # 或
-http://服务器IP:80  # 如果使用serve工具部署
+http://服务器IP:80  # 如果使用 serve 工具部署
 ```
 
 ### 第3步：验证功能
 
 1. 尝试注册新用户
-2. 尝试登录系统（可用初始管理员账号：admin/123456）
+2. 尝试登录系统（可用初始管理员账号：admin/123456，生产环境请修改）
 3. 尝试浏览商品列表
 4. 尝试上传头像或商品图片（测试文件上传功能）
 
@@ -400,42 +424,67 @@ http://服务器IP:80  # 如果使用serve工具部署
 - 考虑使用连接池和防火墙保护数据库
 - 定期备份数据库
 
-### 2. JWT安全
+### 2. Redis 安全
 
-- 部署时务必修改默认的JWT密钥，使用至少32位的随机字符串
-- 考虑调整JWT过期时间以符合安全策略
-- 生产环境中使用HTTPS传输JWT令牌
+- 如果 Redis 部署在公网，务必设置访问密码
+- 限制 Redis 的监听地址，避免暴露到公网
+- 定期备份 Redis 数据（如有需要）
 
-### 3. 文件上传安全
+### 3. JWT 安全
 
-- 确保上传目录有适当的访问权限（Linux下建议755）
+- 部署时务必修改默认的 JWT 密钥，使用至少 32 位的随机字符串
+- 考虑调整 JWT 过期时间以符合安全策略
+- 生产环境中使用 HTTPS 传输 JWT 令牌
+
+### 4. 文件上传安全
+
+- 确保上传目录有适当的访问权限（Linux 下建议 755）
 - 考虑限制上传文件类型和大小
-- 不要将上传目录放在Web根目录下
+- 不要将上传目录放在 Web 根目录下
 - 实施文件重命名策略，避免文件名冲突和路径遍历攻击
 
-### 4. 生产环境安全配置
+### 5. 密码加密
+
+- 当前开发环境使用自定义 PasswordEncoder 进行明文比较
+- **生产环境必须替换为 BCryptPasswordEncoder**，否则存在严重安全风险
+
+### 6. 生产环境安全配置
 
 - 关闭开发环境特有的功能（如调试模式、热重载等）
 - 设置适当的错误页面，避免敏感信息泄露
-- 考虑使用HTTPS加密传输
+- 考虑使用 HTTPS 加密传输
+- 修改 CORS 配置，只允许可信任的前端域名访问
 
 ## 常见问题排查
 
 ### 1. 数据库连接失败
 
-- **检查MySQL服务状态**：
+- **检查 MySQL 服务状态**：
   ```bash
   # Linux
   systemctl status mysql
   
   # Windows
-  services.msc  # 查看MySQL服务状态
+  services.msc  # 查看 MySQL 服务状态
   ```
-- **验证连接参数**：确保数据库URL、用户名和密码正确
-- **检查防火墙**：确保数据库端口（默认为3306）未被防火墙阻止
+- **验证连接参数**：确保数据库 URL、用户名和密码正确
+- **检查防火墙**：确保数据库端口（默认为 3306）未被防火墙阻止
 - **检查权限**：确保数据库用户有足够的权限访问指定的数据库
 
-### 2. 后端服务启动失败
+### 2. Redis 连接失败
+
+- **检查 Redis 服务状态**：
+  ```bash
+  # Linux
+  systemctl status redis
+  
+  # Windows
+  services.msc
+  ```
+- **验证连接参数**：确保 Redis 地址、端口、密码正确
+- **检查防火墙**：确保 Redis 端口（默认为 6379）未被防火墙阻止
+
+### 3. 后端服务启动失败
 
 - **检查端口占用**：
   ```bash
@@ -445,17 +494,18 @@ http://服务器IP:80  # 如果使用serve工具部署
   # Windows
   netstat -ano | findstr :8080
   ```
-- **查看错误日志**：Spring Boot默认会在控制台输出错误信息
+- **查看错误日志**：Spring Boot 默认会在控制台输出错误信息
 - **检查文件上传目录**：确保目录存在且有读写权限
+- **检查 MyBatis XML 配置**：确保 `mybatis.mapper-locations` 配置正确
 
-### 3. 前端无法访问后端API
+### 4. 前端无法访问后端 API
 
 - **检查后端服务状态**：确保后端服务正在运行
-- **验证Nginx代理配置**：检查`proxy_pass`是否正确指向后端服务
-- **检查CORS配置**：如果直接访问API，确保后端已配置CORS
-- **检查API路径**：确保前端请求的API路径正确
+- **验证 Nginx 代理配置**：检查 `proxy_pass` 是否正确指向后端服务
+- **检查 CORS 配置**：如果直接访问 API，确保后端已配置 CORS
+- **检查 API 路径**：确保前端请求的 API 路径正确
 
-### 4. 文件上传失败
+### 5. 文件上传失败
 
 - **检查上传目录权限**：
   ```bash
@@ -465,12 +515,12 @@ http://服务器IP:80  # 如果使用serve工具部署
   # Windows
   icacls D:\uploads  # 查看权限
   ```
-- **检查文件大小限制**：确保上传的文件大小未超过`file.max-size`设置
+- **检查文件大小限制**：确保上传的文件大小未超过 `file.max-size` 设置
 - **查看错误日志**：分析服务器日志获取详细错误信息
 
-### 5. 用户认证失败
+### 6. 用户认证失败
 
-- **检查JWT配置**：确保JWT密钥在前后端一致
+- **检查 JWT 配置**：确保 JWT 密钥在前后端一致
 - **检查用户权限**：确保用户具有访问特定资源的权限
 - **检查数据库连接**：确保用户信息能正确从数据库读取
 
@@ -482,27 +532,27 @@ http://服务器IP:80  # 如果使用serve工具部署
 
 ```bash
 # Windows
-java -jar sport-equip-store-backend-v1.0.jar
+java -jar sport-equipment-backend-0.0.1-SNAPSHOT.jar
 
 # Linux
-java -jar sport-equip-store-backend-v1.0.jar
+java -jar sport-equipment-backend-0.0.1-SNAPSHOT.jar
 
-# Linux后台运行
-nohup java -jar sport-equip-store-backend-v1.0.jar > backend.log 2>&1 &
+# Linux 后台运行
+nohup java -jar sport-equipment-backend-0.0.1-SNAPSHOT.jar > backend.log 2>&1 &
 ```
 
-#### Nginx服务
+#### Nginx 服务
 
 ```bash
 # Linux
-# 方式一：使用systemctl
+# 方式一：使用 systemctl
 systemctl start nginx
 
 # 方式二：直接启动
 nginx
 
 # Windows
-# 使用服务管理器或直接运行nginx.exe
+# 使用服务管理器或直接运行 nginx.exe
 ```
 
 ### 停止服务
@@ -523,18 +573,18 @@ netstat -ano | findstr :8080
 taskkill /PID [进程ID] /F
 ```
 
-#### Nginx服务
+#### Nginx 服务
 
 ```bash
 # Linux
-# 方式一：使用systemctl
+# 方式一：使用 systemctl
 systemctl stop nginx
 
-# 方式二：使用Nginx命令
+# 方式二：使用 Nginx 命令
 nginx -s stop
 
 # Windows
-# 在Nginx安装目录下运行：
+# 在 Nginx 安装目录下运行：
 nginx.exe -s stop
 ```
 
@@ -546,18 +596,18 @@ nginx.exe -s stop
 # 停止当前服务，然后重新启动
 ```
 
-#### Nginx服务
+#### Nginx 服务
 
 ```bash
 # Linux
-# 方式一：使用systemctl
+# 方式一：使用 systemctl
 systemctl restart nginx
 
-# 方式二：使用Nginx命令
+# 方式二：使用 Nginx 命令
 nginx -s reload
 
 # Windows
-# 在Nginx安装目录下运行：
+# 在 Nginx 安装目录下运行：
 nginx.exe -s reload
 ```
 
@@ -574,11 +624,11 @@ netstat -tuln | grep 8080
 netstat -ano | findstr :8080
 ```
 
-#### Nginx服务
+#### Nginx 服务
 
 ```bash
 # Linux
-# 方式一：使用systemctl
+# 方式一：使用 systemctl
 systemctl status nginx
 
 # 方式二：检查端口
@@ -591,25 +641,27 @@ netstat -ano | findstr :80
 
 ## 版本信息
 
-- 后端版本：0.0.1-SNAPSHOT（Spring Boot 3.5.6）
-- 前端版本：基于Vue 3.5.22
+- 后端版本：0.0.1-SNAPSHOT（Spring Boot 3.5.14）
+- 前端版本：基于 Vue 3.5.22
 - 数据库要求：MySQL 5.7+
-- JDK要求：Java 17+
+- Redis 要求：Redis 7.0+
+- JDK 要求：Java 17+
 
 ## 附录：项目技术栈
 
 ### 后端
-- Spring Boot 3.5.6
-- Spring Data JPA
-- Spring Security
-- JWT (JSON Web Token)
+- Spring Boot 3.5.14
+- MyBatis 3.0.3（mybatis-spring-boot-starter）
+- Spring Security 6.x
+- JWT（jjwt 0.11.5）
 - MySQL Connector/J 8.0.33
+- Redis + Redisson 3.26.0
 - Lombok
 
 ### 前端
 - Vue 3.5.22
 - Vue Router 4.6.3
-- Pinia 3.0.4 / Vuex 4.0.2
+- Pinia 3.0.4
 - Element Plus 2.11.5
 - Axios 1.12.2
 - Vite 7.1.7

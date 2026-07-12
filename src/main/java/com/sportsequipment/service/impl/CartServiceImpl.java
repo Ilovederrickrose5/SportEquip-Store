@@ -14,7 +14,6 @@ import com.sportsequipment.mapper.UserMapper;
 import com.sportsequipment.security.UserDetailsImpl;
 import com.sportsequipment.service.CartService;
 import com.sportsequipment.util.RedisUtil;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -28,20 +27,21 @@ import java.util.stream.Collectors;
 @Service
 public class CartServiceImpl implements CartService {
 
-    @Autowired
-    private CartMapper cartMapper;
+    private final CartMapper cartMapper;
+    private final CartItemMapper cartItemMapper;
+    private final UserMapper userMapper;
+    private final ProductMapper productMapper;
+    private final RedisUtil redisUtil;
 
-    @Autowired
-    private CartItemMapper cartItemMapper;
-
-    @Autowired
-    private UserMapper userMapper;
-
-    @Autowired
-    private ProductMapper productMapper;
-
-    @Autowired
-    private RedisUtil redisUtil;
+    public CartServiceImpl(CartMapper cartMapper, CartItemMapper cartItemMapper,
+            UserMapper userMapper, ProductMapper productMapper,
+            RedisUtil redisUtil) {
+        this.cartMapper = cartMapper;
+        this.cartItemMapper = cartItemMapper;
+        this.userMapper = userMapper;
+        this.productMapper = productMapper;
+        this.redisUtil = redisUtil;
+    }
 
     // 购物车缓存键前缀
     private static final String CART_CACHE_KEY_PREFIX = "cart:user:";

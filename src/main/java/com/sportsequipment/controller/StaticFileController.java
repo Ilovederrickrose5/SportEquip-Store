@@ -1,6 +1,5 @@
 package com.sportsequipment.controller;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -18,8 +17,11 @@ import com.sportsequipment.service.FileStorageService;
 @RequestMapping("/api/upload")
 public class StaticFileController {
 
-    @Autowired
-    private FileStorageService fileStorageService;
+    private final FileStorageService fileStorageService;
+
+    public StaticFileController(FileStorageService fileStorageService) {
+        this.fileStorageService = fileStorageService;
+    }
 
     /**
      * 直接访问上传的文件
@@ -27,21 +29,21 @@ public class StaticFileController {
      */
     @GetMapping("/{directory}/{fileName:.+}")
     public ResponseEntity<Resource> serveFile(
-            @PathVariable String directory, 
+            @PathVariable String directory,
             @PathVariable String fileName) {
         try {
             // 构建完整的文件路径（包含目录）
             String fullPath = directory + "/" + fileName;
             Resource resource = fileStorageService.loadFileAsResource(fullPath);
-            
+
             // 根据文件扩展名确定MIME类型
             String contentType = getContentType(fileName);
-            
+
             // 确保contentType非空
             if (contentType == null) {
                 contentType = "application/octet-stream";
             }
-            
+
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType(contentType))
                     .body(resource);
@@ -49,7 +51,7 @@ public class StaticFileController {
             return ResponseEntity.notFound().build();
         }
     }
-    
+
     /**
      * 根据文件名确定MIME类型
      */

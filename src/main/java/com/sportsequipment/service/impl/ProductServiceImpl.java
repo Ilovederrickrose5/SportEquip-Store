@@ -12,7 +12,6 @@ import com.sportsequipment.mapper.SubCategoryMapper;
 import com.sportsequipment.mapper.ThirdCategoryMapper;
 import com.sportsequipment.service.ProductService;
 import com.sportsequipment.util.RedisUtil;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
@@ -26,20 +25,21 @@ import java.util.stream.Collectors;
 @Service
 public class ProductServiceImpl implements ProductService {
 
-    @Autowired
-    private ProductMapper productMapper;
+    private final ProductMapper productMapper;
+    private final ThirdCategoryMapper thirdCategoryMapper;
+    private final SubCategoryMapper subCategoryMapper;
+    private final MainCategoryMapper mainCategoryMapper;
+    private final RedisUtil redisUtil;
 
-    @Autowired
-    private ThirdCategoryMapper thirdCategoryMapper;
-
-    @Autowired
-    private SubCategoryMapper subCategoryMapper;
-
-    @Autowired
-    private MainCategoryMapper mainCategoryMapper;
-
-    @Autowired
-    private RedisUtil redisUtil;
+    public ProductServiceImpl(ProductMapper productMapper, ThirdCategoryMapper thirdCategoryMapper,
+            SubCategoryMapper subCategoryMapper, MainCategoryMapper mainCategoryMapper,
+            RedisUtil redisUtil) {
+        this.productMapper = productMapper;
+        this.thirdCategoryMapper = thirdCategoryMapper;
+        this.subCategoryMapper = subCategoryMapper;
+        this.mainCategoryMapper = mainCategoryMapper;
+        this.redisUtil = redisUtil;
+    }
 
     // 搜索结果缓存键前缀（防止缓存穿透）
     private static final String SEARCH_CACHE_KEY_PREFIX = "product:search:";

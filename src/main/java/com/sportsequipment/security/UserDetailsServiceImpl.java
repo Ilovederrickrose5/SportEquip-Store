@@ -4,7 +4,6 @@ import com.sportsequipment.entity.User;
 import com.sportsequipment.mapper.UserMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.provisioning.UserDetailsManager;
@@ -14,15 +13,18 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class UserDetailsServiceImpl implements UserDetailsManager {
     private static final Logger logger = LoggerFactory.getLogger(UserDetailsServiceImpl.class);
-    
-    @Autowired
-    UserMapper userMapper;
+
+    private final UserMapper userMapper;
+
+    public UserDetailsServiceImpl(UserMapper userMapper) {
+        this.userMapper = userMapper;
+    }
 
     @Override
     @Transactional
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         logger.info("尝试加载用户: {}", username);
-        
+
         try {
             User user = userMapper.findByUsername(username);
             if (user == null) {

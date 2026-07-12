@@ -12,7 +12,6 @@ import com.sportsequipment.mapper.SubCategoryMapper;
 import com.sportsequipment.mapper.ThirdCategoryMapper;
 import com.sportsequipment.service.CategoryService;
 import com.sportsequipment.util.RedisUtil;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
@@ -26,17 +25,20 @@ import java.util.stream.Collectors;
 @Service
 public class CategoryServiceImpl implements CategoryService {
 
-    @Autowired
-    private MainCategoryMapper mainCategoryMapper;
+    private final MainCategoryMapper mainCategoryMapper;
+    private final SubCategoryMapper subCategoryMapper;
+    private final ThirdCategoryMapper thirdCategoryMapper;
+    private final RedisUtil redisUtil;
 
-    @Autowired
-    private SubCategoryMapper subCategoryMapper;
-
-    @Autowired
-    private ThirdCategoryMapper thirdCategoryMapper;
-
-    @Autowired
-    private RedisUtil redisUtil;
+    public CategoryServiceImpl(MainCategoryMapper mainCategoryMapper,
+            SubCategoryMapper subCategoryMapper,
+            ThirdCategoryMapper thirdCategoryMapper,
+            RedisUtil redisUtil) {
+        this.mainCategoryMapper = mainCategoryMapper;
+        this.subCategoryMapper = subCategoryMapper;
+        this.thirdCategoryMapper = thirdCategoryMapper;
+        this.redisUtil = redisUtil;
+    }
 
     // 分类分布式锁键前缀（防止缓存击穿）
     private static final String CATEGORY_LOCK_KEY_PREFIX = "lock:category:";

@@ -8,7 +8,6 @@ import com.sportsequipment.exception.UnauthorizedException;
 import com.sportsequipment.mapper.UserMapper;
 import com.sportsequipment.security.UserDetailsImpl;
 import com.sportsequipment.service.UserService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -21,11 +20,13 @@ import java.util.stream.Collectors;
 @Service
 public class UserServiceImpl implements UserService {
 
-    @Autowired
-    private UserMapper userMapper;
+    private final UserMapper userMapper;
+    private final PasswordEncoder passwordEncoder;
 
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    public UserServiceImpl(UserMapper userMapper, PasswordEncoder passwordEncoder) {
+        this.userMapper = userMapper;
+        this.passwordEncoder = passwordEncoder;
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -209,29 +210,29 @@ public class UserServiceImpl implements UserService {
     public boolean changePassword(String oldPassword, String newPassword) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-        
+
         Long userId = userDetails.getId();
         if (userId == null) {
             throw new IllegalStateException("User ID cannot be null");
         }
-        
+
         User user = userMapper.findById(userId);
         if (user == null) {
             throw new ResourceNotFoundException("User not found");
         }
-        
+
         // 验证旧密码是否正确
         if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
             return false;
         }
-        
+
         // 加密新密码并更新
         user.setPassword(passwordEncoder.encode(newPassword));
         user.setUpdatedAt(java.time.LocalDateTime.now());
         userMapper.update(user);
         return true;
     }
-    
+
     @Override
     @Transactional(readOnly = true)
     public User findByUsername(String username) {

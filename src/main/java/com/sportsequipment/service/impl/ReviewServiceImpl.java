@@ -16,7 +16,6 @@ import com.sportsequipment.mapper.ReviewMapper;
 import com.sportsequipment.security.UserDetailsImpl;
 import com.sportsequipment.service.ReviewService;
 import com.sportsequipment.service.UserService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -31,20 +30,21 @@ import java.util.stream.Collectors;
 @Service
 public class ReviewServiceImpl implements ReviewService {
 
-    @Autowired
-    private ReviewMapper reviewMapper;
+    private final ReviewMapper reviewMapper;
+    private final ProductMapper productMapper;
+    private final OrderMapper orderMapper;
+    private final OrderItemMapper orderItemMapper;
+    private final UserService userService;
 
-    @Autowired
-    private ProductMapper productMapper;
-
-    @Autowired
-    private OrderMapper orderMapper;
-
-    @Autowired
-    private OrderItemMapper orderItemMapper;
-
-    @Autowired
-    private UserService userService;
+    public ReviewServiceImpl(ReviewMapper reviewMapper, ProductMapper productMapper,
+            OrderMapper orderMapper, OrderItemMapper orderItemMapper,
+            UserService userService) {
+        this.reviewMapper = reviewMapper;
+        this.productMapper = productMapper;
+        this.orderMapper = orderMapper;
+        this.orderItemMapper = orderItemMapper;
+        this.userService = userService;
+    }
 
     @Override
     @Transactional

@@ -1,6 +1,5 @@
 package com.sportsequipment.service.impl;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,11 +22,13 @@ import java.util.stream.Collectors;
 @Service
 public class FavoriteServiceImpl implements FavoriteService {
 
-    @Autowired
-    private FavoriteMapper favoriteMapper;
+    private final FavoriteMapper favoriteMapper;
+    private final ProductMapper productMapper;
 
-    @Autowired
-    private ProductMapper productMapper;
+    public FavoriteServiceImpl(FavoriteMapper favoriteMapper, ProductMapper productMapper) {
+        this.favoriteMapper = favoriteMapper;
+        this.productMapper = productMapper;
+    }
 
     @Override
     @Transactional

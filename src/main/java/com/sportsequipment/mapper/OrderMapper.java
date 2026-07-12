@@ -3,6 +3,7 @@ package com.sportsequipment.mapper;
 
 import com.sportsequipment.entity.Order;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -17,15 +18,15 @@ import java.util.List;
 public interface OrderMapper {
 
     /**
-     * 根据ID查询订单详情
+     * 根据ID查询订单详情（包含订单项）
      * 
      * @param id 订单ID
-     * @return 订单实体，包含订单基本信息
+     * @return 订单实体，包含订单基本信息和订单项
      */
     Order findById(Long id);
 
     /**
-     * 查询所有订单（管理员使用）
+     * 查询所有订单（管理员使用，包含订单项）
      * 
      * @return 订单列表
      */
@@ -53,10 +54,55 @@ public interface OrderMapper {
     void deleteById(Long id);
 
     /**
-     * 根据用户ID查询订单列表（用户个人中心使用）
+     * 根据用户ID查询订单列表（包含订单项）
      * 
      * @param userId 用户ID
      * @return 该用户的所有订单
      */
     List<Order> findByUserId(Long userId);
+
+    /**
+     * 分页查询用户订单（不含订单项，用于列表页）
+     * 
+     * @param userId 用户ID
+     * @param status 订单状态（可选，为null时查询所有状态）
+     * @param offset 偏移量
+     * @param limit  每页数量
+     * @return 订单列表
+     */
+    List<Order> findByUserIdWithPagination(
+            @Param("userId") Long userId,
+            @Param("status") String status,
+            @Param("offset") int offset,
+            @Param("limit") int limit);
+
+    /**
+     * 分页查询所有订单（不含订单项，用于管理员列表页）
+     * 
+     * @param status 订单状态（可选，为null时查询所有状态）
+     * @param offset 偏移量
+     * @param limit  每页数量
+     * @return 订单列表
+     */
+    List<Order> findAllWithPagination(
+            @Param("status") String status,
+            @Param("offset") int offset,
+            @Param("limit") int limit);
+
+    /**
+     * 统计用户订单数量
+     * 
+     * @param userId 用户ID
+     * @param status 订单状态（可选，为null时统计所有状态）
+     * @return 订单数量
+     */
+    int countByUserId(@Param("userId") Long userId, @Param("status") String status);
+
+    /**
+     * 统计所有订单数量
+     * 
+     * @param status 订单状态（可选，为null时统计所有状态）
+     * @return 订单数量
+     */
+    int countAll(@Param("status") String status);
 }

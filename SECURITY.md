@@ -1,21 +1,130 @@
-# Security Policy
+# 运动装备电商系统 - 安全策略
 
-## Supported Versions
+## 支持版本
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+当前项目处于持续开发阶段，以下版本获得安全更新支持：
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+| 版本 | 支持状态 |
+|------|---------|
+| 0.0.1-SNAPSHOT | ✅ 活跃支持 |
+| 更早版本 | ❌ 不再支持 |
 
-## Reporting a Vulnerability
+## 报告安全漏洞
 
-Use this section to tell people how to report a vulnerability.
+如果您发现了本项目中的安全漏洞，请通过以下方式报告：
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+1. **不要** 在公开的 Issue 或讨论区披露漏洞细节。
+2. 发送邮件至项目维护者，描述漏洞的影响范围和复现步骤。
+3. 维护者将在收到报告后的 7 个工作日内确认，并尽快修复。
+
+## 已知安全注意事项
+
+### 1. 开发环境密码策略
+
+- **当前状态**：开发环境使用自定义 `PasswordEncoder` 进行明文密码比较，便于测试和调试。
+- **风险**：如果该配置用于生产环境，用户密码将以明文形式存储和比较，存在严重泄露风险。
+- **建议**：生产环境必须替换为 `BCryptPasswordEncoder`。
+
+```java
+// 生产环境推荐配置
+@Bean
+public PasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();
+}
+```
+
+### 2. JWT 密钥安全
+
+- **当前状态**：JWT 密钥通过 `application.properties` 中的 `sportsequipment.app.jwtSecret` 配置。
+- **风险**：默认密钥为开发环境硬编码，如果未修改直接部署到生产环境，攻击者可能伪造 JWT Token。
+- **建议**：
+  - 生产环境使用至少 256 位（32 字节）的随机字符串作为密钥。
+  - 通过环境变量或外部配置文件注入密钥，避免提交到版本控制。
+  - 定期轮换 JWT 密钥。
+
+### 3. 数据库凭证安全
+
+- **当前状态**：数据库用户名和密码以明文形式配置在 `application.properties` 中。
+- **风险**：配置文件泄露会导致数据库访问凭证暴露。
+- **建议**：
+  - 生产环境使用环境变量或密钥管理系统（如 Vault、AWS Secrets Manager）管理数据库密码。
+  - 限制数据库用户权限，仅授予必要的最小权限。
+  - 使用强密码策略。
+
+### 4. Redis 安全
+
+- **当前状态**：Redis 默认无密码，监听本地地址。
+- **风险**：如果 Redis 暴露到公网或未设置密码，可能导致缓存数据泄露或被恶意操作。
+- **建议**：
+  - 生产环境设置 Redis 访问密码。
+  - 限制 Redis 监听地址，避免暴露到公网。
+  - 启用 Redis 的访问控制列表（ACL）。
+
+### 5. 文件上传安全
+
+- **当前状态**：项目支持头像和商品图片上传，默认限制文件大小为 10MB。
+- **风险**：上传功能可能存在路径遍历、文件类型绕过等风险。
+- **建议**：
+  - 严格限制上传文件类型（如仅允许 jpg、png、webp）。
+  - 对上传文件进行重命名，避免使用原始文件名。
+  - 将上传目录与 Web 根目录隔离。
+  - 定期扫描上传目录中的恶意文件。
+
+### 6. CORS 配置
+
+- **当前状态**：CORS 允许 `http://localhost:5173` 和 `http://localhost:5174` 访问。
+- **风险**：生产环境如果继续允许所有来源或 localhost，可能导致 CSRF 等攻击。
+- **建议**：生产环境仅允许可信任的前端域名访问。
+
+### 7. SQL 注入防护
+
+- **当前状态**：项目使用 MyBatis 作为 ORM，SQL 语句中使用 `#{}` 进行参数化查询。
+- **风险**：如果在 XML 或注解中使用 `${}` 拼接用户输入，可能存在 SQL 注入风险。
+- **建议**：
+  - 严禁在 SQL 中直接使用 `${}` 拼接用户输入。
+  - 定期审查 Mapper XML 文件中的 SQL 语句。
+
+### 8. 敏感信息日志
+
+- **当前状态**：项目开启了 DEBUG/INFO 级别的日志记录。
+- **风险**：日志中可能记录用户密码、JWT Token 等敏感信息。
+- **建议**：
+  - 生产环境调整日志级别为 WARN 或 ERROR。
+  - 避免在日志中输出密码、Token、身份证等敏感信息。
+
+## 安全最佳实践
+
+### 开发环境
+- 使用本地数据库和 Redis，不暴露到公网。
+- 使用默认的管理员账号进行测试。
+- 不要提交真实敏感配置到 Git。
+
+### 生产环境
+- 使用 BCryptPasswordEncoder 替代明文密码比较。
+- 修改默认 JWT 密钥、数据库密码、管理员账号。
+- 启用 HTTPS，确保 Token 传输安全。
+- 配置合理的 CORS 来源。
+- 定期备份数据库。
+- 启用防火墙，仅开放必要的端口（如 80/443、8080）。
+- 定期更新依赖版本，修复已知安全漏洞。
+
+## 安全相关配置检查清单
+
+部署前请确认以下事项：
+
+- [ ] JWT 密钥已修改为强随机字符串
+- [ ] 数据库密码已修改为强密码
+- [ ] Redis 已设置密码（如部署在公网）
+- [ ] 管理员账号密码已修改
+- [ ] PasswordEncoder 已替换为 BCryptPasswordEncoder
+- [ ] CORS 配置仅允许可信任域名
+- [ ] 上传目录已正确设置权限
+- [ ] 日志级别已调整为生产环境级别
+- [ ] 已启用 HTTPS
+- [ ] 已关闭开发环境特有的调试功能
+
+## 参考资源
+
+- [Spring Security 官方文档](https://docs.spring.io/spring-security/reference/)
+- [OWASP Top 10](https://owasp.org/www-project-top-ten/)
+- [JWT 安全最佳实践](https://tools.ietf.org/html/rfc8725)

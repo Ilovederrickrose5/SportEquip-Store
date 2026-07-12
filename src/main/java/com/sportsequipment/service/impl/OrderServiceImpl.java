@@ -2,6 +2,7 @@ package com.sportsequipment.service.impl;
 
 import com.sportsequipment.dto.OrderDTO;
 import com.sportsequipment.dto.OrderItemDTO;
+import com.sportsequipment.dto.PageResponse;
 import com.sportsequipment.entity.Order;
 import com.sportsequipment.entity.OrderItem;
 import com.sportsequipment.entity.Product;
@@ -15,13 +16,15 @@ import com.sportsequipment.mapper.UserMapper;
 import com.sportsequipment.security.UserDetailsImpl;
 import com.sportsequipment.service.OrderService;
 import com.sportsequipment.util.RedisUtil;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -29,20 +32,28 @@ import java.util.stream.Collectors;
 @Service
 public class OrderServiceImpl implements OrderService {
 
-    @Autowired
-    private OrderMapper orderMapper;
+    private static final Logger logger = LoggerFactory.getLogger(OrderServiceImpl.class);
 
-    @Autowired
-    private OrderItemMapper orderItemMapper;
+    private final OrderMapper orderMapper;
+    private final OrderItemMapper orderItemMapper;
+    private final UserMapper userMapper;
+    private final ProductMapper productMapper;
+    private final RedisUtil redisUtil;
 
-    @Autowired
-    private UserMapper userMapper;
+    public OrderServiceImpl(OrderMapper orderMapper, OrderItemMapper orderItemMapper,
+            UserMapper userMapper, ProductMapper productMapper,
+            RedisUtil redisUtil) {
+        this.orderMapper = orderMapper;
+        this.orderItemMapper = orderItemMapper;
+        this.userMapper = userMapper;
+        this.productMapper = productMapper;
+        this.redisUtil = redisUtil;
+    }
 
-    @Autowired
-    private ProductMapper productMapper;
-
-    @Autowired
-    private RedisUtil redisUtil;
+    // 订单列表缓存键前缀
+    private static final String ORDER_LIST_CACHE_PREFIX = "order:list:";
+    // 订单列表缓存过期时间（10分钟）
+    private static final int ORDER_LIST_CACHE_MINUTES = 10;
 
     @Override
     @Transactional(readOnly = true)
@@ -200,6 +211,9 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
+        // 清除订单列表缓存，保证缓存一致性
+        clearOrderListCache(userId);
+
         return mapToOrderDTO(order);
     }
 
@@ -227,6 +241,10 @@ public class OrderServiceImpl implements OrderService {
         order.setStatus(status);
         order.setUpdatedAt(java.time.LocalDateTime.now());
         orderMapper.update(order);
+
+        // 清除订单列表缓存，保证缓存一致性
+        clearOrderListCache(order.getUserId());
+
         return mapToOrderDTO(order);
     }
 
@@ -249,6 +267,9 @@ public class OrderServiceImpl implements OrderService {
         }
 
         orderMapper.deleteById(id);
+
+        // 清除订单列表缓存，保证缓存一致性
+        clearOrderListCache(order.getUserId());
     }
 
     // 检查订单访问权限
@@ -322,5 +343,124 @@ public class OrderServiceImpl implements OrderService {
         orderItemDTO.setQuantity(orderItem.getQuantity());
         orderItemDTO.setPrice(orderItem.getPrice());
         return orderItemDTO;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<OrderDTO> getCurrentUserOrdersWithPagination(String status, int page, int size) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+        Long userId = userDetails.getId();
+
+        // 构建缓存key
+        String cacheKey = ORDER_LIST_CACHE_PREFIX + "user:" + userId + ":status:" + (status != null ? status : "all")
+                + ":page:" + page + ":size:" + size;
+
+        // 先从缓存读取
+        @SuppressWarnings("unchecked")
+        PageResponse<OrderDTO> cached = redisUtil.get(cacheKey, PageResponse.class);
+        if (cached != null) {
+            logger.debug("从缓存获取订单列表，userId={}, page={}", userId, page);
+            return cached;
+        }
+
+        // 计算偏移量
+        int offset = page * size;
+
+        // 查询订单列表（分页，不含订单项）
+        List<Order> orders = orderMapper.findByUserIdWithPagination(userId, status, offset, size);
+
+        // 查询订单总数
+        int totalElements = orderMapper.countByUserId(userId, status);
+
+        // 转换为DTO（列表页不需要订单项详情）
+        List<OrderDTO> orderDTOs = orders.stream()
+                .map(this::mapToOrderDTOWithoutItems)
+                .collect(Collectors.toList());
+
+        // 构建分页响应
+        PageResponse<OrderDTO> pageResponse = new PageResponse<>(orderDTOs, page, size, totalElements);
+
+        // 缓存结果
+        redisUtil.set(cacheKey, pageResponse, ORDER_LIST_CACHE_MINUTES, TimeUnit.MINUTES);
+
+        logger.debug("从数据库查询订单列表，userId={}, page={}, total={}", userId, page, totalElements);
+        return pageResponse;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<OrderDTO> getAllOrdersWithPagination(String status, int page, int size) {
+        // 构建缓存key
+        String cacheKey = ORDER_LIST_CACHE_PREFIX + "admin:status:" + (status != null ? status : "all")
+                + ":page:" + page + ":size:" + size;
+
+        // 先从缓存读取
+        @SuppressWarnings("unchecked")
+        PageResponse<OrderDTO> cached = redisUtil.get(cacheKey, PageResponse.class);
+        if (cached != null) {
+            logger.debug("从缓存获取管理员订单列表，page={}", page);
+            return cached;
+        }
+
+        // 计算偏移量
+        int offset = page * size;
+
+        // 查询订单列表（分页，不含订单项）
+        List<Order> orders = orderMapper.findAllWithPagination(status, offset, size);
+
+        // 查询订单总数
+        int totalElements = orderMapper.countAll(status);
+
+        // 转换为DTO（列表页不需要订单项详情）
+        List<OrderDTO> orderDTOs = orders.stream()
+                .map(this::mapToOrderDTOWithoutItems)
+                .collect(Collectors.toList());
+
+        // 构建分页响应
+        PageResponse<OrderDTO> pageResponse = new PageResponse<>(orderDTOs, page, size, totalElements);
+
+        // 缓存结果
+        redisUtil.set(cacheKey, pageResponse, ORDER_LIST_CACHE_MINUTES, TimeUnit.MINUTES);
+
+        logger.debug("从数据库查询管理员订单列表，page={}, total={}", page, totalElements);
+        return pageResponse;
+    }
+
+    /**
+     * 将订单实体转换为DTO（不含订单项，用于列表页）
+     * 列表页只需要订单基本信息，不需要订单项详情
+     * 避免N+1查询问题，提升列表页性能
+     */
+    private OrderDTO mapToOrderDTOWithoutItems(Order order) {
+        OrderDTO orderDTO = new OrderDTO();
+        orderDTO.setId(order.getId());
+        orderDTO.setUserId(order.getUserId());
+        orderDTO.setUsername(getCurrentUsername());
+        orderDTO.setTotalAmount(order.getTotalAmount());
+        orderDTO.setStatus(order.getStatus());
+        orderDTO.setShippingAddress(order.getShippingAddress());
+        orderDTO.setAddress(order.getShippingAddress());
+        orderDTO.setPhone(order.getPhone());
+        orderDTO.setPaymentMethod(order.getPaymentMethod());
+        orderDTO.setRecipientName(order.getRecipientName() != null ? order.getRecipientName() : getCurrentUsername());
+        orderDTO.setRemark(order.getRemark());
+        orderDTO.setCreatedAt(order.getCreatedAt());
+        orderDTO.setUpdatedAt(order.getUpdatedAt());
+
+        // 列表页不设置订单项，避免N+1查询
+        orderDTO.setOrderItems(Collections.emptyList());
+
+        return orderDTO;
+    }
+
+    /**
+     * 清除订单列表缓存（订单创建/更新/删除时调用）
+     */
+    private void clearOrderListCache(Long userId) {
+        // 清除用户订单列表缓存
+        redisUtil.deletePattern(ORDER_LIST_CACHE_PREFIX + "user:" + userId + ":*");
+        // 清除管理员订单列表缓存
+        redisUtil.deletePattern(ORDER_LIST_CACHE_PREFIX + "admin:*");
     }
 }

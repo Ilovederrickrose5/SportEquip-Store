@@ -1,6 +1,5 @@
 package com.sportsequipment.controller;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -23,11 +22,13 @@ import java.util.Map;
 @RequestMapping("/api/files")
 public class FileController {
 
-    @Autowired
-    private FileStorageService fileStorageService;
+    private final FileStorageService fileStorageService;
+    private final UserService userService;
 
-    @Autowired
-    private UserService userService;
+    public FileController(FileStorageService fileStorageService, UserService userService) {
+        this.fileStorageService = fileStorageService;
+        this.userService = userService;
+    }
 
     @PostMapping("/upload/avatar")
     public ResponseEntity<?> uploadAvatar(@RequestParam("file") MultipartFile file) {

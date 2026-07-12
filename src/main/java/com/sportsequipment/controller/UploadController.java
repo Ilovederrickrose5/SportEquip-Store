@@ -6,7 +6,6 @@ import com.sportsequipment.exception.FileUploadException;
 import com.sportsequipment.security.UserDetailsImpl;
 import com.sportsequipment.service.FileStorageService;
 import com.sportsequipment.service.UserService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -21,11 +20,13 @@ import java.util.Map;
 @RequestMapping("/api/upload")
 public class UploadController {
 
-    @Autowired
-    private UserService userService;
-    
-    @Autowired
-    private FileStorageService fileStorageService;
+    private final UserService userService;
+    private final FileStorageService fileStorageService;
+
+    public UploadController(UserService userService, FileStorageService fileStorageService) {
+        this.userService = userService;
+        this.fileStorageService = fileStorageService;
+    }
 
     // 上传用户头像
     @PostMapping("/avatar")
@@ -68,7 +69,7 @@ public class UploadController {
             response.put("fileType", file.getContentType());
             response.put("size", String.valueOf(file.getSize()));
             response.put("message", "头像上传成功");
-            
+
             return ResponseEntity.ok(response);
         } catch (Exception ex) {
             throw new FileUploadException("文件上传失败: " + ex.getMessage());
@@ -94,7 +95,7 @@ public class UploadController {
             response.put("fileUrl", fileUrl);
             response.put("fileType", file.getContentType());
             response.put("size", String.valueOf(file.getSize()));
-            
+
             return ResponseEntity.ok(response);
         } catch (Exception ex) {
             throw new FileUploadException("文件上传失败: " + ex.getMessage());

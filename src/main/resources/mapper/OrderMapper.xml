@@ -17,7 +17,7 @@
 <mapper namespace="com.sportsequipment.mapper.OrderMapper">
 
     <!-- 
-        订单结果映射
+        订单结果映射（完整，包含订单项）
         collection标签用于一对多关联查询（订单 -> 订单项）
         select属性指定查询订单项的SQL
     -->
@@ -37,14 +37,72 @@
         <collection property="orderItems" column="id" select="findOrderItemsByOrderId"/>
     </resultMap>
 
+    <!-- 
+        订单轻量结果映射（不含订单项，用于列表页）
+        列表页只需要订单基本信息，不需要订单项详情
+        避免N+1查询问题，提升列表页性能
+    -->
+    <resultMap id="OrderLightResultMap" type="Order">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="totalAmount" column="total_amount"/>
+        <result property="status" column="status"/>
+        <result property="shippingAddress" column="shipping_address"/>
+        <result property="phone" column="phone"/>
+        <result property="paymentMethod" column="payment_method"/>
+        <result property="recipientName" column="recipient_name"/>
+        <result property="remark" column="remark"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <!-- 列表页不需要订单项，避免N+1查询 -->
+    </resultMap>
+
     <!-- 根据ID查询订单（包含订单项） -->
     <select id="findById" resultMap="OrderResultMap">
         SELECT * FROM `order` WHERE id = #{id}
     </select>
 
-    <!-- 查询所有订单 -->
+    <!-- 查询所有订单（包含订单项） -->
     <select id="findAll" resultMap="OrderResultMap">
         SELECT * FROM `order`
+    </select>
+
+    <!-- 分页查询用户订单（不含订单项，用于列表页） -->
+    <select id="findByUserIdWithPagination" resultMap="OrderLightResultMap">
+        SELECT * FROM `order`
+        WHERE user_id = #{userId}
+        <if test="status != null and status != ''">
+            AND status = #{status}
+        </if>
+        ORDER BY created_at DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <!-- 分页查询所有订单（不含订单项，用于管理员列表页） -->
+    <select id="findAllWithPagination" resultMap="OrderLightResultMap">
+        SELECT * FROM `order`
+        <if test="status != null and status != ''">
+            WHERE status = #{status}
+        </if>
+        ORDER BY created_at DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <!-- 统计用户订单数量 -->
+    <select id="countByUserId" resultType="int">
+        SELECT COUNT(*) FROM `order`
+        WHERE user_id = #{userId}
+        <if test="status != null and status != ''">
+            AND status = #{status}
+        </if>
+    </select>
+
+    <!-- 统计所有订单数量 -->
+    <select id="countAll" resultType="int">
+        SELECT COUNT(*) FROM `order`
+        <if test="status != null and status != ''">
+            WHERE status = #{status}
+        </if>
     </select>
 
     <!-- 创建新订单 -->

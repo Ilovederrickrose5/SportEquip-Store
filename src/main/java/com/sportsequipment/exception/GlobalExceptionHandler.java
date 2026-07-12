@@ -21,7 +21,6 @@ import java.util.Map;
 
 /**
  * 全局异常处理器
- * 
  * 统一处理所有异常，返回标准化的错误响应
  */
 @ControllerAdvice
