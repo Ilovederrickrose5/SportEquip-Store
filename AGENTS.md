@@ -94,6 +94,9 @@
 
 ### 9. 消息队列（RabbitMQ）模块
 - **生产者**：`MqEventPublisher` 统一封装，发送 `OrderCreatedEvent`（订单创建）和 `OrderPendingTimeoutEvent`（待支付超时）
+  - 发布方法返回 **boolean 成功标志**（`true`=同步发送未抛异常；`false`=入参空 / 校验不通过 / 发送抛异常，异常以 ERROR 留痕），让 `OrderServiceImpl` 等调用方对 MQ 发送结果不再完全无感知
+  - 每次发送带 `CorrelationData`，`correlationId` 格式固定：`evt:{事件类型}:{业务 orderId}:{uuid}`（例：`evt:orderCreated:10086:f47ac10b`），供 Broker 回调精准关联具体订单
+  - 业务发送条件：`OrderCreatedEvent` 所有订单创建后都发；`OrderPendingTimeoutEvent` **仅当 `order.status = PENDING`（未支付）时才发延迟消息**，已支付 PAID 订单按业务设计跳过（已支付无需 30min 后自动关单），Service 层打印 INFO 级日志留痕
 - **延迟消息实现**：DLX（死信交换机）+ TTL 方案。`order.delay.queue` 带 `x-message-ttl`，过期后经 `order.dlx.exchange` 路由到 `order.cancel.queue`
 - **队列拓扑**：
   - `order.exchange`（direct）
@@ -106,7 +109,9 @@
   - 订单取消事件/手动取消/删除统一：`mq:idempotent:order-cancel:{orderId}`
 - **确认机制**：
   - 消费端 MANUAL ACK：业务成功 ack，首次异常 nack + requeue 重投 1 次；仍失败 nack + drop（死信/人工补偿），避免死循环
-  - 生产端 Publisher Confirm + Returns 回调，写日志留痕
+  - 生产端 Publisher **Confirm 回调**（ACK 到达交换机）：仅 DEBUG 打 OK；未到达交换机（`ack=false`）**ERROR 级日志**，打印 `correlationId`（含业务 orderId）与 `cause`，快速定位连接/权限/交换机不存在类问题
+  - 生产端 **Returns 回调**（交换机有、但 routingKey 无匹配队列 = NO_ROUTE）：统一 **ERROR 级日志**，打印 correlationId、exchange、routingKey、reply、body，快速发现 binding 丢失/配置漂移类问题
+  - 应用侧要求 `spring.rabbitmq.template.mandatory=true` 开启，否则 Returns 回调不会触发
 - **消息序列化**：`Jackson2JsonMessageConverter`，生产者与消费者工厂共用同一个 Converter
 - **公共取消服务**：`OrderCancelService.cancelOrderAndRestoreStock` 承担「权限校验→仅 PENDING→分布式锁归还库存→状态→清缓存→幂等 SET」全链路，用户手动取消、管理员改 CANCELLED、管理员删除 PENDING、MQ 超时取消四条入口共用同一实现
 
@@ -375,8 +380,9 @@ frontend/
    spring.rabbitmq.username=guest
    spring.rabbitmq.password=guest
    spring.rabbitmq.virtual-host=/
-   spring.rabbitmq.publisher-confirm-type=correlated          # 生产端 Confirm 回调
-   spring.rabbitmq.publisher-returns=true                     # 生产端 Returns 回调（未路由到队列）
+   spring.rabbitmq.publisher-confirm-type=correlated          # 生产端 Confirm 回调（消息到达交换机）
+   spring.rabbitmq.publisher-returns=true                     # 生产端 Returns 回调（交换机存在但未路由到队列 = NO_ROUTE）
+   spring.rabbitmq.template.mandatory=true                    # 必须为 true，Returns 回调才会生效
    spring.rabbitmq.listener.simple.acknowledge-mode=manual    # 消费端手动 ACK
    spring.rabbitmq.listener.simple.prefetch=10                # 预取 10，均衡消费
    spring.rabbitmq.listener.simple.concurrency=2              # 默认消费者线程数
@@ -384,6 +390,12 @@ frontend/
    sportsequipment.mq.order-pending-ttl-ms=1800000            # PENDING 订单超时 TTL=30min
    sportsequipment.mq.idempotent-ttl-seconds=86400            # MQ 幂等 Redis key TTL=24h
    ```
+   启动后可在 RabbitMQ 管理面板（`http://localhost:15672`）的「Queues」页确认 3 条队列 Features 符合预期：
+   | 队列名 | Features（期望） | 说明 |
+   |---|---|---|
+   | `order.created.queue` | D | 仅持久化（普通业务队列） |
+   | `order.delay.queue` | D、TTL、DLX、DLK | 4 个 Feature：持久化 + TTL=30min + DLX 交换机 + DLK=order.cancel；面板 3 个队列 Total=0 为正常（order.created 被消费者立即 Ack，PAID 订单不发 delay 队列） |
+   | `order.cancel.queue` | D | 仅持久化（自动取消业务队列） |
 
 ### 启动方式
 
@@ -435,8 +447,26 @@ npm run dev
 
 ---
 
-*文档版本：v1.3*
-*最后更新：2026-10-15*
+*文档版本：v1.4*
+*最后更新：2026-08-13*
+
+### v1.3 → v1.4 变更摘要
+1. **RabbitMQ 可观测性增强 + 业务发送条件显式化**：
+   - `MqEventPublisher` 两个 `publish*` 方法改为返回 **boolean 成功标志**，同步阶段抛异常不再静默吞掉；发布时强制绑定 `CorrelationData`，`correlationId` 约定格式：`evt:orderCreated:{orderId}:{uuid}` / `evt:orderDelay:{orderId}:{uuid}`，Broker 回调可直接定位业务订单
+   - `RabbitMQConfig.RabbitTemplate` Confirm 回调：未到达交换机（ack=false）升级 **ERROR 级日志**并输出 correlationId + cause；Returns 回调（NO_ROUTE 未路由到队列）升级 ERROR 并输出 correlationId/exchange/routingKey/reply/body；原 `mandatory=true` 配置追加到部署文档 RabbitMQ 清单里
+   - `OrderServiceImpl` MQ 发送节点：按返回 flag 显式打印 INFO / ERROR 日志；**`OrderPendingTimeoutEvent`（延迟消息）仅在 `order.status=PENDING` 时发送**，PAID 订单跳过并打印 INFO 语义化说明（当前业务无支付环节，前端带 paymentMethod=WECHAT 的订单 status=PAID，延迟消息面板 0 条为业务正常，非 Bug）
+2. **订单创建链路 Bug 修复：orderId 自增回写 + 订单项 order_id 非空**：
+   - `OrderMapper.xml <insert>` 标签补齐 `useGeneratedKeys="true" keyProperty="id"`：让 MySQL `order.id AUTO_INCREMENT` 结果回写到 Java `Order` 对象，否则执行完 `orderMapper.insert(order)` 后 `order.getId()` 恒为 null → 插入 `order_item.order_id`（NOT NULL 列）触发 SQLException: Column 'order_id' cannot be null，前端报 500
+   - `OrderServiceImpl` insert 后加 `order.getId()==null` 显式 `IllegalStateException` 断言，未回写时立刻报出配置问题，不再绕弯子
+3. **分类 SQL 引用不存在列 Bug 修复：CategoryMapper.xml 全节点 description 列清理**：
+   - 批量删除 `CategoryMapper.xml` 中 12 处 `category.description` 引用（数据库 `category` 表不存在该列）：包括 ResultMap 父端与 `<collection>` 子端共 2 处、8 条 SELECT 列清单（findById/findAll/findByLevel/findByParentId/findSubtreeByAncestorId/findAncestorsByDescendantId/findWithDirectChildrenByLevel 父+子）、INSERT 列与参数、UPDATE SET 段
+   - 保留 `Category.java` 实体类中 `description` 属性不变（仅让 MyBatis 不读/不写 DB 列），解决 `/api/products`、`/api/products/random` 接口 `Unknown column 'description' in 'field list'` 500 报错
+4. **前端「我的订单」渲染崩溃 + 购物车注入违规 4 类兜底修复**：
+   - `OrderService.getUserOrders()`：原 `get('')` 调用分页接口（返回 `PageResponse` 对象非数组），改为 `get('/list')` 匹配后端 `GET /api/orders/list`（纯数组），解决 `MyOrdersView.fetchOrders` 里 `this.orders.sort is not a function`
+   - `MyOrdersView.fetchOrders()`：4 层 Array 兜底（非数组 → 兼容 rawOrders.content → 空数组）+ 筛选前 check + `.sort` 前强校验 `Array.isArray` + `finally` 必清 `loading` + catch 也置空数组；同步修复"Vue 渲染器崩溃导致 loading 不消失、路由按钮点击无响应"的连锁症状
+   - `OrderItem.vue`：新增 `formatPrice(val)` 方法，`null/undefined/NaN → '0.00'`，模板中 `item.price.toFixed` / `order.totalAmount.toFixed` 全部替换为 `formatPrice(...)`，避免 `Cannot read properties of undefined (reading 'toFixed')` 导致的 render 函数崩溃
+   - `CartService.js`：删除违规的 `useStore()`/`inject()` 调用（Vuex 的 `useStore()` 内部依赖 Vue `inject`，仅允许在 `<script setup>` 或组件 setup 函数里使用），改为 `import store from '../store/cartStore'` 直接引用应用全局同一个 Vuex 单例；封装 `safeCommit/safeDispatch` 防 store 异常；`clearCart()` catch 后不再向上抛，软失败返回 `{cartItems:[]}`，避免订单创建成功后跳转「我的订单」主流程被购物车报错阻塞
+5. **全局验证 & 编译**：后端 `mvn clean compile` BUILD SUCCESS；4 个前端文件 + 3 个后端文件 GetDiagnostics 全部 0 diagnostics；管理面板 Queues Features 3 条队列符合拓扑预期（order.delay.queue = D+TTL+DLX+DLK）
 
 ### v1.2 → v1.3 变更摘要
 1. **RabbitMQ 消息队列接入**：
