@@ -47,7 +47,7 @@
 
 ### 2. 商品模块
 - 商品 CRUD 操作
-- **统一分类体系（邻接表 + 闭包表）**：单表 `category`（parent_id+level），配合 `category_closure` 支持任意层级分类树、子树查询、祖先面包屑；过渡期 product 表 `third_category_id` / `category_id` 双写
+- 商品分类（**标准三级分类体系**：`main_category` 一级分类 → `sub_category` 二级分类 → `third_category` 三级分类，三张物理表通过外键逐级关联）
 - 库存管理
 - Redis 缓存优化
 - 商品搜索与筛选（支持模糊查询）
@@ -136,12 +136,10 @@ frontend/
 | 表名 | 描述 | 备注 |
 |------|------|------|
 | `user` | 用户信息表 | 包含用户名、密码、邮箱、角色、头像等 |
-| `product` | 商品信息表 | 包含名称、价格、库存、分类、图片等；`category_id`（新标准）/ `third_category_id`（过渡期双写）两列并存 |
-| `category` | **统一商品分类表** | 邻接表结构：`parent_id` 自引用 + `level` 标识层级（1=一级 / 2=二级 / 3=三级），支持任意层级扩展 |
-| `category_closure` | **分类闭包表** | 存储所有祖先-后代关系（`ancestor_id`、`descendant_id`、`depth`），高效支持子树查询、祖先链（面包屑）、层级 JOIN |
-| `main_category` | 商品一级分类（旧） | 迁移过渡用，业务代码已切换到 `category` 表 |
-| `sub_category` | 商品二级分类（旧） | 迁移过渡用，业务代码已切换到 `category` 表 |
-| `third_category` | 商品三级分类（旧） | 迁移过渡用，业务代码已切换到 `category` 表 |
+| `product` | 商品信息表 | 包含名称、价格、库存、分类、图片等，通过 `third_category_id` 外键关联三级分类 |
+| `main_category` | 商品一级分类表 | 如「运动鞋」「服装」「器材」 |
+| `sub_category` | 商品二级分类表 | 外键关联 `main_category.id`；如「跑步鞋」隶属于「运动鞋」 |
+| `third_category` | 商品三级分类表 | 外键关联 `sub_category.id`；如「缓震款跑步鞋」隶属于「跑步鞋」 |
 | `sub_categories` | 二级分类备用表 | 历史遗留空表 |
 | `cart` | 购物车表 | 一个用户对应一个购物车 |
 | `cart_item` | 购物车项表 | 记录购物车中的商品及数量 |
@@ -155,8 +153,9 @@ frontend/
 - `user.role`：角色字段，取值为 `USER` 或 `ADMIN`。
 - `product.status`：商品状态在代码中以字符串形式维护（当前未使用独立状态枚举）。
 - `order.status`：订单状态字符串，取值为 `PENDING`、`PAID`、`SHIPPED`、`DELIVERED`、`COMPLETED`、`CANCELLED`。
-- `category.path` / `category.pathName`：分类ID路径（如 `1-5-12`）与分类名路径（如「运动鞋-跑步鞋-缓震款」），冗余存储用于面包屑和 SEO，由 Service 层在创建/更新时自动维护。
-- `category_closure.depth`：`ancestor_id` 到 `descendant_id` 的边数；depth=0 表示自身，depth>=1 表示真实祖先-后代关系。
+- `sub_category.main_category_id`：外键指向一级分类 `main_category.id`。
+- `third_category.sub_category_id`：外键指向二级分类 `sub_category.id`。
+- `product.third_category_id`：外键指向三级分类 `third_category.id`，商品以三级分类作为最细粒度归属。
 
 ### JWT Claims 说明
 - `sub`：用户名（subject）
@@ -201,23 +200,22 @@ frontend/
 ### 商品分类
 | 方法 | 路径 | 描述 |
 |------|------|------|
-| GET | `/api/categories` | 获取全部分类树（底层使用统一 `category` + `category_closure` 闭包表组装，接口返回结构保持不变，前端无感） |
-| GET | `/api/categories/main` | 获取一级分类 |
-| GET | `/api/categories/sub/{mainCategoryId}` | 获取指定一级分类下的二级分类 |
-| GET | `/api/categories/third/{subCategoryId}` | 获取指定二级分类下的三级分类 |
-| GET | `/api/categories/main/{id}/sub` | 获取一级分类下的二级分类（同上，别名兼容） |
-| GET | `/api/categories/sub/{id}/third` | 获取二级分类下的三级分类（同上，别名兼容） |
+| GET | `/api/categories` | 获取全部分类树（一级→二级→三级嵌套结构） |
+| GET | `/api/categories/main` | 获取全部一级分类列表 |
+| GET | `/api/categories/sub/{mainCategoryId}` | 获取指定一级分类下的全部二级分类 |
+| GET | `/api/categories/third/{subCategoryId}` | 获取指定二级分类下的全部三级分类 |
+| GET | `/api/categories/main/{id}/sub` | 获取一级分类下的二级分类（别名兼容） |
+| GET | `/api/categories/sub/{id}/third` | 获取二级分类下的三级分类（别名兼容） |
 
 ### 商品分类管理（管理员）
-> 底层统一操作 `category` 表 + `category_closure` 闭包表；对外仍保持 Main / Sub / Third 三套命名以兼容历史前端。
 | 方法 | 路径 | 描述 |
 |------|------|------|
 | POST | `/api/categories/main` | 新建一级分类 |
 | PUT | `/api/categories/main/{id}` | 更新一级分类 |
-| DELETE | `/api/categories/main/{id}` | 删除一级分类（软删除整棵子树，闭包表同步清理） |
+| DELETE | `/api/categories/main/{id}` | 删除一级分类（若其下有二级/三级分类会连带清理） |
 | POST | `/api/categories/sub` | 新建二级分类（入参含所属 mainCategoryId） |
 | PUT | `/api/categories/sub/{id}` | 更新二级分类 |
-| DELETE | `/api/categories/sub/{id}` | 删除二级分类（软删除其下全部三级） |
+| DELETE | `/api/categories/sub/{id}` | 删除二级分类（若其下有三级分类会连带清理） |
 | POST | `/api/categories/third` | 新建三级分类（入参含所属 subCategoryId） |
 | PUT | `/api/categories/third/{id}` | 更新三级分类 |
 | DELETE | `/api/categories/third/{id}` | 删除三级分类 |
@@ -284,7 +282,7 @@ frontend/
 | 随机推荐 | `product:random:{limit}` | 30-60 分钟随机 | 随机商品推荐 |
 | 购物车 | `cart:user:{userId}` | 20~28 小时随机 | 防止缓存雪崩 |
 | 订单列表 | `order:list:user:{userId}:...` | 8-12 分钟随机 | 加速订单列表查询 |
-| 分类列表/详情 | `category:list`、`category:main`、`category:sub`、`category:third`、`category:detail` | 120 分钟 TTL，60 分钟 maxIdle（@Cacheable） | 新旧命名空间并存，新代码底层统一 `category` 表 |
+| 分类列表/详情 | `category:list`、`category:main`、`category:sub`、`category:third` | 120 分钟 TTL，60 分钟 maxIdle（@Cacheable + RedissonSpringCacheManager） | 分类树、一级、二级、三级结果缓存 |
 | **access_token 黑名单** | `auth:blacklist:{accessJti}` | TTL = access_token 剩余有效期（ms） | /logout 吊销 access_token；TTL 到期 Redis 自动清理，防止黑名单无限膨胀 |
 | **refresh_token 用户绑定** | `auth:refresh:user:{userId}` | TTL = refresh_token 有效期（7 天） | 存储该用户当前唯一有效 refreshJti；用于防重放、单点登录绑定、改密一键踢全端 |
 | **refresh_token 黑名单** | `auth:refresh:blacklist:{refreshJti}` | TTL = 旧 refresh 剩余有效期（ms），兜底 7 天 | Rotation 轮换时作废旧 refresh，防止 refresh 被盗反复重放 |
@@ -294,7 +292,7 @@ frontend/
 |------|------------|------|
 | 商品创建 | `lock:product:create` | 防止高并发下缓存击穿 |
 | 商品更新/删除 | `lock:product:{id}` | 防止同商品并发修改 |
-| 分类更新/删除（统一表） | `lock:category:main:{id}`、`lock:category:sub:{id}`、`lock:category:third:{id}` | 防止同分类并发修改；删除一级/二级时联动闭包表整棵子树软删除 |
+| 分类更新/删除 | `lock:category:main:{id}`、`lock:category:sub:{id}`、`lock:category:third:{id}` | 防止同分类并发修改；删除一级/二级时联动清理其下子分类 |
 | 购物车操作 | `cart:lock:{userId}:product:{productId}` | 细粒度锁，提高并发 |
 | 订单扣库存 | `lock:product:{productId}` | leaseTime=30 秒（非 watchdog 自动续期），配合双重库存检查防超卖 |
 | 缓存重建（热点商品/分类） | `lock:{cacheKey}`（如 `lock:product:hot:10`） | 单实例重建缓存，防止缓存击穿 |
@@ -318,17 +316,19 @@ frontend/
 ### 数据库初始化
 项目使用 MyBatis 作为 ORM，**不再使用 JPA 自动建表**。数据库初始化方式：
 1. 手动创建数据库：`CREATE DATABASE sport_equipment DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`
-2. 根据 `entity` 包中的实体类或 `resources/mapper/*.xml` 中的表结构手动创建表。
-3. **分类体系初始化（邻接表 + 闭包表）**：
-   - 新建 `category` 表：含 `id, name, parent_id, level, sort_order, status, icon_url, path, path_name, seo_keywords, seo_description, created_at, updated_at, deleted` 字段，`deleted=0` 软删除。
-   - 新建 `category_closure` 表：含 `ancestor_id, descendant_id, depth` 三列，复合主键 `(ancestor_id, descendant_id)`，depth=0 表示自身。
-   - 数据迁移（如需将旧三张表 `main_category / sub_category / third_category` 合并）：推荐采用**ID 偏移策略**避免主键冲突（例如 main 原 id+1000000、sub+2000000、third+3000000），写回 `category` 后同步回填 `category_closure`：
-     - depth=0：每条分类插入 self 记录 `(id, id, 0)`；
-     - depth=1：直接父子关系 `(parent_id, id, 1)`；
-     - depth>=2：逐层向上追溯祖先插入，确保任意祖先→后代关系都能命中闭包表。
-   - 商品表 `product`：新增 `category_id` 列（与旧 `third_category_id` 做 ID 偏移映射后回填），过渡期 MyBatis 双写两列；新增索引按 `category_id + price` 建立复合索引。
-4. 导入初始数据（管理员账号、商品分类等）。
-5. JWT 相关配置（`application.properties`）：
+2. 根据 `src/main/java/com/sportsequipment/entity/` 包下的实体类手动创建数据库表，或参考 `src/main/resources/mapper/*.xml` 中的字段定义。**主要实体类包括**：
+   - `User`（用户表）
+   - `Product`（商品表）
+   - `MainCategory`（一级分类表）
+   - `SubCategory`（二级分类表）
+   - `ThirdCategory`（三级分类表）
+   - `Cart`（购物车表）、`CartItem`（购物车项表）
+   - `Order`（订单表）、`OrderItem`（订单项表）
+   - `Address`（地址表）
+   - `Review`（评价表）
+   - `Favorite`（收藏表）
+3. 导入初始数据：管理员账号、一/二/三级分类基础数据等。
+4. JWT 相关配置（`application.properties`）：
    ```
    sportsequipment.app.jwtExpirationMs=86400000            # 兼容旧 token 默认 24h
    sportsequipment.app.accessTokenExpirationMs=900000       # 15分钟
@@ -389,9 +389,9 @@ npm run dev
 *最后更新：2026-08-13*
 
 ### v1.1 → v1.2 变更摘要
-1. **分类体系升级（邻接表 + 闭包表）**：新增 `category` 统一表 + `category_closure` 闭包表，替代原 `main_category / sub_category / third_category` 三物理表；Service 层切换到统一分类驱动，对外接口签名保持不变（前端无感）；`product.category_id` 新标准与 `third_category_id` 过渡期双写。
-2. **用户主动退出登录（JWT 吊销）**：新增 `POST /api/auth/logout`，实现基于 Redis + jti 的 access_token 黑名单，TTL = 剩余有效期自动清理，解决无状态 JWT 无法主动作废的问题。
-3. **双 token 机制（access + refresh）**：登录同时下发 `access_token（15min）` 与 `refresh_token（7d）`，新增 `POST /api/auth/refresh` 使用 Rotation 轮换策略无感续期；过滤器强制 `typ=refresh` 不得访问业务接口；刷新时重放检测（jti 与用户绑定不一致即全端作废旧 refresh）。
-4. **改密/踢人一键生效**：`reset-password` 改密后通过删除 `auth:refresh:user:{userId}` 绑定立刻让所有设备失效。
-5. **Redis Key 与 TTL 规范补齐**：auth 模块 3 组黑名单/绑定 Key（`auth:blacklist:*`、`auth:refresh:user:*`、`auth:refresh:blacklist:*`）、product/category/order 等各模块 TTL/随机过期/空值 TTL 与项目约束规范统一。
-6. **部署文档补齐**：数据库初始化补充 category/category_closure 建表 + 旧表数据迁移（ID 偏移策略）+ product 双写列初始化 + JWT 配置说明。
+1. **用户主动退出登录（JWT 吊销）**：新增 `POST /api/auth/logout`，实现基于 Redis + jti 的 access_token 黑名单，TTL = 剩余有效期自动清理，解决无状态 JWT 无法主动作废的问题。
+2. **双 token 机制（access + refresh）**：登录同时下发 `access_token（15min）` 与 `refresh_token（7d）`，新增 `POST /api/auth/refresh` 使用 Rotation 轮换策略无感续期；过滤器强制 `typ=refresh` 不得访问业务接口；刷新时重放检测（jti 与用户绑定不一致即全端作废旧 refresh）。
+3. **改密/踢人一键生效**：`reset-password` 改密后通过删除 `auth:refresh:user:{userId}` 绑定立刻让所有设备失效。
+4. **Redis Key 与 TTL 规范补齐**：auth 模块 3 组黑名单/绑定 Key（`auth:blacklist:*`、`auth:refresh:user:*`、`auth:refresh:blacklist:*`）、product/category/order 等各模块 TTL/随机过期/空值 TTL 与项目约束规范统一。
+5. **部署文档补齐**：初始化数据库结构补充实体类清单 + JWT 配置说明。
+6. **遗留代码清理**：删除不再使用的 `MainCategoryMapper/SubCategoryMapper/ThirdCategoryMapper` 及对应 MyBatis XML，`Product.java` 清理冗余三级分类关联对象字段（分类代码层面对外仍保持标准三张分类实体 API 契约，数据库表保留）。

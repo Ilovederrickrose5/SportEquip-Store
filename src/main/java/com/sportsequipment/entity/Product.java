@@ -21,17 +21,11 @@ public class Product {
 
     /**
      * 旧字段：三级分类ID（对应已废弃的 third_category 表）
-     * 
-     * @deprecated 过渡期保留双写，一周后切到 categoryId 再清理
+     *
+     * @deprecated 过渡期保留双写，与 categoryId 保持一致
      */
     @Deprecated
     private Long thirdCategoryId;
-
-    /**
-     * @deprecated 过渡期保留，一周后切到 category 字段
-     */
-    @Deprecated
-    private ThirdCategory thirdCategory;
 
     @NotNull(message = "Price is required")
     @DecimalMin(value = "0.01", message = "Price must be greater than 0")
@@ -97,22 +91,6 @@ public class Product {
     @Deprecated
     public void setThirdCategoryId(Long thirdCategoryId) {
         this.thirdCategoryId = thirdCategoryId;
-    }
-
-    /**
-     * @deprecated 过渡期保留，使用 getCategory() 替代
-     */
-    @Deprecated
-    public ThirdCategory getThirdCategory() {
-        return thirdCategory;
-    }
-
-    /**
-     * @deprecated 过渡期保留，使用 setCategory(Category) 替代
-     */
-    @Deprecated
-    public void setThirdCategory(ThirdCategory thirdCategory) {
-        this.thirdCategory = thirdCategory;
     }
 
     public BigDecimal getPrice() {

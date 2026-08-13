@@ -1,15 +1,11 @@
 package com.sportsequipment.service.impl;
 
 import com.sportsequipment.dto.ProductDTO;
-import com.sportsequipment.entity.MainCategory;
+import com.sportsequipment.entity.Category;
 import com.sportsequipment.entity.Product;
-import com.sportsequipment.entity.SubCategory;
-import com.sportsequipment.entity.ThirdCategory;
 import com.sportsequipment.exception.ResourceNotFoundException;
-import com.sportsequipment.mapper.MainCategoryMapper;
+import com.sportsequipment.mapper.CategoryMapper;
 import com.sportsequipment.mapper.ProductMapper;
-import com.sportsequipment.mapper.SubCategoryMapper;
-import com.sportsequipment.mapper.ThirdCategoryMapper;
 import com.sportsequipment.service.ProductService;
 import com.sportsequipment.util.RedisUtil;
 import org.springframework.cache.annotation.CacheEvict;
@@ -27,18 +23,12 @@ import java.util.stream.Collectors;
 public class ProductServiceImpl implements ProductService {
 
     private final ProductMapper productMapper;
-    private final ThirdCategoryMapper thirdCategoryMapper;
-    private final SubCategoryMapper subCategoryMapper;
-    private final MainCategoryMapper mainCategoryMapper;
+    private final CategoryMapper categoryMapper;
     private final RedisUtil redisUtil;
 
-    public ProductServiceImpl(ProductMapper productMapper, ThirdCategoryMapper thirdCategoryMapper,
-            SubCategoryMapper subCategoryMapper, MainCategoryMapper mainCategoryMapper,
-            RedisUtil redisUtil) {
+    public ProductServiceImpl(ProductMapper productMapper, CategoryMapper categoryMapper, RedisUtil redisUtil) {
         this.productMapper = productMapper;
-        this.thirdCategoryMapper = thirdCategoryMapper;
-        this.subCategoryMapper = subCategoryMapper;
-        this.mainCategoryMapper = mainCategoryMapper;
+        this.categoryMapper = categoryMapper;
         this.redisUtil = redisUtil;
     }
 
@@ -402,29 +392,45 @@ public class ProductServiceImpl implements ProductService {
         productDTO.setCreatedAt(product.getCreatedAt());
         productDTO.setUpdatedAt(product.getUpdatedAt());
 
-        // 设置三级分类信息（品牌）- 手动查询，避免MyBatis关联对象为null
-        if (product.getThirdCategoryId() != null) {
-            ThirdCategory thirdCategory = thirdCategoryMapper.findById(product.getThirdCategoryId());
-            if (thirdCategory != null) {
-                productDTO.setThirdCategoryId(thirdCategory.getId());
-                productDTO.setThirdCategoryName(thirdCategory.getName());
+        // 设置一/二/三级分类信息：优先查 category_id，其次回退到 third_category_id（过渡期双写兼容）
+        Long leafId = product.getCategoryId() != null ? product.getCategoryId() : product.getThirdCategoryId();
+        if (leafId != null) {
+            Category leaf = categoryMapper.findById(leafId);
+            if (leaf != null) {
+                // level=3 或没有更上层：填成三级分类（或只有一级/二级时放对应位置）
+                Integer lv = leaf.getLevel();
+                if (lv == null)
+                    lv = 3;
+                if (lv <= 3)
+                    productDTO.setThirdCategoryId(leaf.getId());
+                if (lv <= 3)
+                    productDTO.setThirdCategoryName(leaf.getName());
 
-                // 设置二级分类信息
-                if (thirdCategory.getSubCategoryId() != null) {
-                    SubCategory subCategory = subCategoryMapper.findById(thirdCategory.getSubCategoryId());
-                    if (subCategory != null) {
-                        productDTO.setSubCategoryId(subCategory.getId());
-                        productDTO.setSubCategoryName(subCategory.getName());
-
-                        // 设置一级分类信息（主分类）
-                        if (subCategory.getMainCategoryId() != null) {
-                            MainCategory mainCategory = mainCategoryMapper.findById(subCategory.getMainCategoryId());
-                            if (mainCategory != null) {
-                                productDTO.setMainCategoryId(mainCategory.getId());
-                                productDTO.setMainCategoryName(mainCategory.getName());
-                            }
-                        }
+                // 向上找祖先链：顺序为 父（depth=1）/ 祖父（depth=2）/ ...，即 level-1, level-2
+                List<Category> ancestors = categoryMapper.findAncestorsByDescendantId(leafId);
+                // 按 level 升序排：根一级在前，二级在后；若 ancestors 只有 1 条(直接父)+2 条(祖父)=共 2 个链节点
+                // level: 1(一级) 2(二级) 3(三级 leaf)
+                for (Category ancestor : ancestors) {
+                    Integer aLv = ancestor.getLevel();
+                    if (aLv == null)
+                        continue;
+                    if (aLv == 1) {
+                        productDTO.setMainCategoryId(ancestor.getId());
+                        productDTO.setMainCategoryName(ancestor.getName());
+                    } else if (aLv == 2) {
+                        productDTO.setSubCategoryId(ancestor.getId());
+                        productDTO.setSubCategoryName(ancestor.getName());
                     }
+                }
+                // 如果 leaf 自己就是 level=1 或 level=2，没有祖先但需要填对应 slot
+                if (lv == 1) {
+                    productDTO.setMainCategoryId(leaf.getId());
+                    productDTO.setMainCategoryName(leaf.getName());
+                    productDTO.setSubCategoryId(null);
+                    productDTO.setSubCategoryName(null);
+                } else if (lv == 2) {
+                    productDTO.setSubCategoryId(leaf.getId());
+                    productDTO.setSubCategoryName(leaf.getName());
                 }
             }
         }
