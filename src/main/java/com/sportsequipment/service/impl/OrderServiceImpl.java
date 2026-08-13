@@ -52,8 +52,20 @@ public class OrderServiceImpl implements OrderService {
 
     // 订单列表缓存键前缀
     private static final String ORDER_LIST_CACHE_PREFIX = "order:list:";
-    // 订单列表缓存过期时间（10分钟）
-    private static final int ORDER_LIST_CACHE_MINUTES = 10;
+    // 订单列表缓存基础过期时间（8分钟） + 随机偏移（0~4分钟） = 8~12分钟随机过期，防止缓存雪崩
+    private static final int ORDER_LIST_CACHE_BASE_MINUTES = 8;
+    private static final int ORDER_LIST_CACHE_RANDOM_MINUTES = 4;
+
+    /**
+     * 生成随机过期时间（单位：分钟），用于防止缓存雪崩
+     *
+     * @param baseMinutes   基础过期时间
+     * @param randomMinutes 随机偏移范围
+     * @return 最终过期时间
+     */
+    private int getRandomExpireMinutes(int baseMinutes, int randomMinutes) {
+        return baseMinutes + (int) (Math.random() * randomMinutes);
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -381,8 +393,9 @@ public class OrderServiceImpl implements OrderService {
         // 构建分页响应
         PageResponse<OrderDTO> pageResponse = new PageResponse<>(orderDTOs, page, size, totalElements);
 
-        // 缓存结果
-        redisUtil.set(cacheKey, pageResponse, ORDER_LIST_CACHE_MINUTES, TimeUnit.MINUTES);
+        // 缓存结果，8~12分钟随机过期，防止缓存雪崩
+        int expireMinutes = getRandomExpireMinutes(ORDER_LIST_CACHE_BASE_MINUTES, ORDER_LIST_CACHE_RANDOM_MINUTES);
+        redisUtil.set(cacheKey, pageResponse, expireMinutes, TimeUnit.MINUTES);
 
         logger.debug("从数据库查询订单列表，userId={}, page={}, total={}", userId, page, totalElements);
         return pageResponse;
@@ -420,8 +433,9 @@ public class OrderServiceImpl implements OrderService {
         // 构建分页响应
         PageResponse<OrderDTO> pageResponse = new PageResponse<>(orderDTOs, page, size, totalElements);
 
-        // 缓存结果
-        redisUtil.set(cacheKey, pageResponse, ORDER_LIST_CACHE_MINUTES, TimeUnit.MINUTES);
+        // 缓存结果，8~12分钟随机过期，防止缓存雪崩
+        int expireMinutes = getRandomExpireMinutes(ORDER_LIST_CACHE_BASE_MINUTES, ORDER_LIST_CACHE_RANDOM_MINUTES);
+        redisUtil.set(cacheKey, pageResponse, expireMinutes, TimeUnit.MINUTES);
 
         logger.debug("从数据库查询管理员订单列表，page={}, total={}", page, totalElements);
         return pageResponse;

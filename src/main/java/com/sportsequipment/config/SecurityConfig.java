@@ -4,6 +4,7 @@ import com.sportsequipment.security.JwtAuthEntryPoint;
 import com.sportsequipment.security.JwtAuthTokenFilter;
 import com.sportsequipment.security.JwtUtils;
 import com.sportsequipment.security.UserDetailsServiceImpl;
+import com.sportsequipment.util.RedisUtil;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -32,21 +33,24 @@ public class SecurityConfig {
     private final JwtAuthEntryPoint unauthorizedHandler;
     private final JwtUtils jwtUtils;
     private final UserDetailsServiceImpl userDetailsService;
+    private final RedisUtil redisUtil;
 
     @Value("${cors.allowed-origins}")
     private String allowedOrigins;
 
     public SecurityConfig(JwtAuthEntryPoint unauthorizedHandler,
             JwtUtils jwtUtils,
-            UserDetailsServiceImpl userDetailsService) {
+            UserDetailsServiceImpl userDetailsService,
+            RedisUtil redisUtil) {
         this.unauthorizedHandler = unauthorizedHandler;
         this.jwtUtils = jwtUtils;
         this.userDetailsService = userDetailsService;
+        this.redisUtil = redisUtil;
     }
 
     @Bean
     public JwtAuthTokenFilter authenticationJwtTokenFilter() {
-        return new JwtAuthTokenFilter(jwtUtils, userDetailsService);
+        return new JwtAuthTokenFilter(jwtUtils, userDetailsService, redisUtil);
     }
 
     @Bean
@@ -96,7 +100,10 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
                         // 允许所有用户访问的路径（浏览功能）
-                        .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/register-admin")
+                        .requestMatchers("/api/auth/login",
+                                "/api/auth/register",
+                                "/api/auth/register-admin",
+                                "/api/auth/refresh")
                         .permitAll()
                         // 密码重置接口仅管理员可访问
                         .requestMatchers("/api/auth/reset-password").hasRole("ADMIN")

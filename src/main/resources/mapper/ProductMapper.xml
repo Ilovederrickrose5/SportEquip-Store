@@ -35,50 +35,33 @@
 <mapper namespace="com.sportsequipment.mapper.ProductMapper">
 
     <!-- 1. 根据ID查询单个商品 -->
-    <!-- 
-        resultType="Product"：返回结果自动映射为Product实体类
-        #{id}：引用方法参数，这里对应findById(Long id)方法的id参数
-    -->
     <select id="findById" resultType="Product">
-        SELECT * FROM product WHERE id = #{id}
+        SELECT id, name, category_id, third_category_id, description, price, stock,
+               image_url, created_at, updated_at
+        FROM product WHERE id = #{id}
     </select>
 
     <!-- 2. 查询所有商品 -->
-    <!-- 返回所有商品记录，结果是List<Product> -->
     <select id="findAll" resultType="Product">
-        SELECT * FROM product
+        SELECT id, name, category_id, third_category_id, description, price, stock,
+               image_url, created_at, updated_at
+        FROM product
     </select>
 
-    <!-- 3. 插入新商品 -->
-    <!-- 
-        parameterType="Product"：参数类型是Product实体类
-        #{name}：引用Product对象的name属性
-        注意：数据库表字段名用下划线，Java属性用驼峰，MyBatis会自动转换
-    -->
+    <!-- 3. 插入新商品（过渡期双写 third_category_id + category_id） -->
     <insert id="insert" parameterType="Product">
         INSERT INTO product (
-            name,                    <!-- 商品名称 -->
-            description,             <!-- 商品描述 -->
-            price,                   <!-- 商品价格 -->
-            stock,                   <!-- 库存数量 -->
-            image_url,               <!-- 图片URL -->
-            third_category_id,       <!-- 三级分类ID（品牌） -->
-            created_at,              <!-- 创建时间 -->
-            updated_at               <!-- 更新时间 -->
+            name, description, price, stock, image_url,
+            category_id, third_category_id,
+            created_at, updated_at
         ) VALUES (
-            #{name},
-            #{description},
-            #{price},
-            #{stock},
-            #{imageUrl},             <!-- imageUrl对应Java属性，自动映射到image_url -->
-            #{thirdCategoryId},      <!-- thirdCategoryId自动映射到third_category_id -->
-            #{createdAt},
-            #{updatedAt}
+            #{name}, #{description}, #{price}, #{stock}, #{imageUrl},
+            #{categoryId}, #{thirdCategoryId},
+            #{createdAt}, #{updatedAt}
         )
     </insert>
 
-    <!-- 4. 更新商品信息 -->
-    <!-- 根据id更新商品的所有字段 -->
+    <!-- 4. 更新商品信息（过渡期双写） -->
     <update id="update" parameterType="Product">
         UPDATE product SET
             name = #{name},
@@ -86,47 +69,92 @@
             price = #{price},
             stock = #{stock},
             image_url = #{imageUrl},
+            category_id = #{categoryId},
             third_category_id = #{thirdCategoryId},
             updated_at = #{updatedAt}
-        WHERE id = #{id}  <!-- 必须有WHERE条件，否则会更新所有记录！ -->
+        WHERE id = #{id}
     </update>
 
     <!-- 5. 根据ID删除商品 -->
-    <!-- parameterType="Long"：参数类型是Long -->
     <delete id="deleteById" parameterType="Long">
         DELETE FROM product WHERE id = #{id}
     </delete>
 
-    <!-- 6. 根据三级分类ID查询商品（按品牌筛选） -->
+    <!-- 6. 根据三级分类ID查询商品（过渡期保留旧字段） -->
     <select id="findByThirdCategoryId" resultType="Product">
-        SELECT * FROM product WHERE third_category_id = #{thirdCategoryId}
+        SELECT id, name, category_id, third_category_id, description, price, stock,
+               image_url, created_at, updated_at
+        FROM product WHERE third_category_id = #{thirdCategoryId}
+    </select>
+
+    <!-- 6.1 根据统一分类ID查询商品（新标准） -->
+    <select id="findByCategoryId" resultType="Product">
+        SELECT id, name, category_id, third_category_id, description, price, stock,
+               image_url, created_at, updated_at
+        FROM product WHERE category_id = #{categoryId}
     </select>
 
     <!-- 7. 根据商品名称搜索（模糊匹配） -->
-    <!-- 
-        LIKE模糊查询：CONCAT('%', #{keyword}, '%') 表示关键词前后都匹配
-        例如：搜索"篮球"会匹配"斯伯丁篮球"、"篮球训练服"等
-    -->
     <select id="searchByName" resultType="Product">
-        SELECT * FROM product WHERE name LIKE CONCAT('%', #{keyword}, '%')
+        SELECT id, name, category_id, third_category_id, description, price, stock,
+               image_url, created_at, updated_at
+        FROM product WHERE name LIKE CONCAT('%', #{keyword}, '%')
     </select>
 
     <!-- 8. 综合搜索（名称或描述包含关键词） -->
-    <!-- 使用OR连接多个条件，只要名称或描述包含关键词就匹配 -->
     <select id="search" resultType="Product">
-        SELECT * FROM product 
+        SELECT id, name, category_id, third_category_id, description, price, stock,
+               image_url, created_at, updated_at
+        FROM product 
         WHERE name LIKE CONCAT('%', #{keyword}, '%') 
            OR description LIKE CONCAT('%', #{keyword}, '%')
     </select>
 
+    <!-- 8.1 使用 MySQL 全文索引搜索商品名称（性能优化版） -->
+    <select id="searchByNameFullText" resultType="Product">
+        SELECT id, name, category_id, third_category_id, description, price, stock,
+               image_url, created_at, updated_at
+        FROM product 
+        WHERE MATCH(name) AGAINST(#{keyword} IN NATURAL LANGUAGE MODE)
+    </select>
+
+    <!-- 8.2 根据三级分类ID和价格范围筛选商品（过渡期保留） -->
+    <select id="findByCategoryAndPrice" resultType="Product">
+        SELECT id, name, category_id, third_category_id, description, price, stock,
+               image_url, created_at, updated_at
+        FROM product 
+        WHERE third_category_id = #{thirdCategoryId}
+          AND price BETWEEN #{minPrice} AND #{maxPrice}
+        ORDER BY price ASC
+    </select>
+
+    <!-- 8.3 根据统一分类ID和价格范围筛选商品（新标准） -->
+    <select id="findByNewCategoryAndPrice" resultType="Product">
+        SELECT id, name, category_id, third_category_id, description, price, stock,
+               image_url, created_at, updated_at
+        FROM product 
+        WHERE category_id = #{categoryId}
+          AND price BETWEEN #{minPrice} AND #{maxPrice}
+        ORDER BY price ASC
+    </select>
+
     <!-- 9. 随机获取指定数量的商品（用于推荐功能） -->
-    <!-- 
-        ORDER BY RAND()：MySQL随机排序
-        LIMIT #{limit}：限制返回数量
-        每次调用都会返回不同的商品，实现随机推荐效果
-    -->
     <select id="selectRandomProducts" resultType="Product">
-        SELECT * FROM product ORDER BY RAND() LIMIT #{limit}
+        SELECT id, name, category_id, third_category_id, description, price, stock,
+               image_url, created_at, updated_at
+        FROM product ORDER BY RAND() LIMIT #{limit}
+    </select>
+
+    <!-- 10. 查询销量 Top N 的热门商品 -->
+    <select id="findHotProducts" resultType="Product">
+        SELECT p.id, p.name, p.category_id, p.third_category_id, p.description,
+               p.price, p.stock, p.image_url, p.created_at, p.updated_at,
+               COALESCE(SUM(oi.quantity), 0) AS sales
+        FROM product p
+        LEFT JOIN order_item oi ON p.id = oi.product_id
+        GROUP BY p.id
+        ORDER BY sales DESC, p.created_at DESC
+        LIMIT #{limit}
     </select>
 
 </mapper>

@@ -29,7 +29,10 @@
     </delete>
 
     <select id="findByProductId" resultType="Review">
-        SELECT * FROM review WHERE product_id = #{productId}
+        SELECT id, product_id, user_id, rating, comment, created_at
+        FROM review
+        WHERE product_id = #{productId}
+        ORDER BY created_at DESC
     </select>
 
     <select id="findByUserId" resultType="Review">

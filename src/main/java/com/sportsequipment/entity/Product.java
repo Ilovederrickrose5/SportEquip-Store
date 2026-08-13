@@ -11,8 +11,26 @@ public class Product {
     @Size(max = 100, message = "Product name cannot exceed 100 characters")
     private String name;
 
+    /**
+     * 关联统一分类表 Category.id（新标准，过渡期双写）
+     * 对应数据库 product.category_id
+     */
+    private Long categoryId;
+
+    private Category category;
+
+    /**
+     * 旧字段：三级分类ID（对应已废弃的 third_category 表）
+     * 
+     * @deprecated 过渡期保留双写，一周后切到 categoryId 再清理
+     */
+    @Deprecated
     private Long thirdCategoryId;
 
+    /**
+     * @deprecated 过渡期保留，一周后切到 category 字段
+     */
+    @Deprecated
     private ThirdCategory thirdCategory;
 
     @NotNull(message = "Price is required")
@@ -49,18 +67,50 @@ public class Product {
         this.name = name;
     }
 
+    public Long getCategoryId() {
+        return categoryId;
+    }
+
+    public void setCategoryId(Long categoryId) {
+        this.categoryId = categoryId;
+    }
+
+    public Category getCategory() {
+        return category;
+    }
+
+    public void setCategory(Category category) {
+        this.category = category;
+    }
+
+    /**
+     * @deprecated 过渡期保留，使用 getCategoryId() 替代
+     */
+    @Deprecated
     public Long getThirdCategoryId() {
         return thirdCategoryId;
     }
 
+    /**
+     * @deprecated 过渡期保留，使用 setCategoryId(Long) 替代
+     */
+    @Deprecated
     public void setThirdCategoryId(Long thirdCategoryId) {
         this.thirdCategoryId = thirdCategoryId;
     }
 
+    /**
+     * @deprecated 过渡期保留，使用 getCategory() 替代
+     */
+    @Deprecated
     public ThirdCategory getThirdCategory() {
         return thirdCategory;
     }
 
+    /**
+     * @deprecated 过渡期保留，使用 setCategory(Category) 替代
+     */
+    @Deprecated
     public void setThirdCategory(ThirdCategory thirdCategory) {
         this.thirdCategory = thirdCategory;
     }

@@ -8,11 +8,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
 /**
  * 商品控制器，处理商品的CRUD操作
+ * 
  * @author system
  */
 @CrossOrigin(origins = "*", maxAge = 3600)
@@ -21,7 +23,7 @@ import java.util.stream.Collectors;
 public class ProductController {
 
     private final ProductService productService;
-    
+
     public ProductController(ProductService productService) {
         this.productService = productService;
     }
@@ -81,11 +83,26 @@ public class ProductController {
         return ResponseEntity.noContent().build();
     }
 
+    // 根据三级分类ID和价格范围筛选商品（使用联合索引优化）
+    @GetMapping("/filter")
+    public ResponseEntity<List<ProductDTO>> getProductsByCategoryAndPrice(
+            @RequestParam Long thirdCategoryId,
+            @RequestParam(required = false) BigDecimal minPrice,
+            @RequestParam(required = false) BigDecimal maxPrice) {
+        return ResponseEntity.ok(productService.getProductsByCategoryAndPrice(thirdCategoryId, minPrice, maxPrice));
+    }
+
     // 获取随机推荐商品
     @GetMapping("/random")
     public ResponseEntity<List<ProductDTO>> getRandomProducts(
             @RequestParam(defaultValue = "8") Integer limit) {
         return ResponseEntity.ok(productService.getRandomProducts(limit));
     }
+
+    // 获取热门商品（按销量排序）
+    @GetMapping("/hot")
+    public ResponseEntity<List<ProductDTO>> getHotProducts(
+            @RequestParam(defaultValue = "10") Integer limit) {
+        return ResponseEntity.ok(productService.getHotProducts(limit));
+    }
 }
-    
