@@ -1,8 +1,6 @@
 package com.sportsequipment.service;
 
 import com.sportsequipment.dto.CategoryDTO;
-import com.sportsequipment.dto.SubCategoryDTO;
-import com.sportsequipment.dto.ThirdCategoryDTO;
 import com.sportsequipment.entity.Category;
 import com.sportsequipment.entity.MainCategory;
 import com.sportsequipment.entity.SubCategory;

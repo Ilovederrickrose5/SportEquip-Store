@@ -1,7 +1,6 @@
 package com.sportsequipment.controller;
 
 import com.sportsequipment.dto.AuthTokenResponse;
-import com.sportsequipment.dto.JwtResponse;
 import com.sportsequipment.dto.LoginRequest;
 import com.sportsequipment.dto.MessageResponse;
 import com.sportsequipment.dto.RegisterRequest;

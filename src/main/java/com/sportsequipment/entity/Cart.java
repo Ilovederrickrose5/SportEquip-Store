@@ -26,6 +26,7 @@ public class Cart {
 
     private List<CartItem> cartItems = new ArrayList<>();
 
+    @SuppressWarnings("null")
     public BigDecimal getTotal() {
         if (cartItems == null || cartItems.isEmpty()) {
             return BigDecimal.ZERO;

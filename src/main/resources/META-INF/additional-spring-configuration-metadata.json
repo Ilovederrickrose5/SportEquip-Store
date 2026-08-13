@@ -1,0 +1,34 @@
+{
+  "properties": [
+    {
+      "name": "sportsequipment.app.jwtExpirationMs",
+      "type": "java.lang.Long",
+      "description": "\u517c\u5bb9\u65e7\u7248\u5355 token \u9ed8\u8ba4 24 \u5c0f\u65f6\u8fc7\u671f\u65f6\u957f\uff08\u6beb\u79d2\uff09",
+      "defaultValue": 86400000
+    },
+    {
+      "name": "sportsequipment.app.accessTokenExpirationMs",
+      "type": "java.lang.Long",
+      "description": "access_token \u8fc7\u671f\u65f6\u957f\uff08\u6beb\u79d2\uff09\uff0c\u9ed8\u8ba4 15 \u5206\u949f",
+      "defaultValue": 900000
+    },
+    {
+      "name": "sportsequipment.app.refreshTokenExpirationMs",
+      "type": "java.lang.Long",
+      "description": "refresh_token \u8fc7\u671f\u65f6\u957f\uff08\u6beb\u79d2\uff09\uff0c\u9ed8\u8ba4 7 \u5929",
+      "defaultValue": 604800000
+    },
+    {
+      "name": "sportsequipment.mq.order-pending-ttl-ms",
+      "type": "java.lang.Long",
+      "description": "PENDING \u8ba2\u5355\u672a\u652f\u4ed8\u8d85\u65f6\u81ea\u52a8\u53d6\u6d88\u7684 TTL\uff08\u6beb\u79d2\uff09\uff0c\u9ed8\u8ba4 30 \u5206\u949f",
+      "defaultValue": 1800000
+    },
+    {
+      "name": "sportsequipment.mq.idempotent-ttl-seconds",
+      "type": "java.lang.Integer",
+      "description": "MQ \u6d88\u8d39\u5e42\u7b49\u6027 Redis Key TTL\uff08\u79d2\uff09\uff0c\u9ed8\u8ba4 24 \u5c0f\u65f6",
+      "defaultValue": 86400
+    }
+  ]
+}

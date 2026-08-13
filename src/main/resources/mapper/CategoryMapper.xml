@@ -5,7 +5,6 @@
     <resultMap id="CategoryMap" type="Category">
         <id property="id" column="id"/>
         <result property="name" column="name"/>
-        <result property="description" column="description"/>
         <result property="parentId" column="parent_id"/>
         <result property="level" column="level"/>
         <result property="sortOrder" column="sort_order"/>
@@ -21,7 +20,6 @@
         <collection property="children" ofType="Category" columnPrefix="c_">
             <id property="id" column="id"/>
             <result property="name" column="name"/>
-            <result property="description" column="description"/>
             <result property="parentId" column="parent_id"/>
             <result property="level" column="level"/>
             <result property="sortOrder" column="sort_order"/>
@@ -33,7 +31,7 @@
     </resultMap>
 
     <select id="findById" resultType="Category">
-        SELECT id, name, description, parent_id, level, sort_order, status, icon_url,
+        SELECT id, name, parent_id, level, sort_order, status, icon_url,
                path, path_name, seo_keywords, seo_description,
                created_at, updated_at, deleted
         FROM category
@@ -41,7 +39,7 @@
     </select>
 
     <select id="findAll" resultType="Category">
-        SELECT id, name, description, parent_id, level, sort_order, status, icon_url,
+        SELECT id, name, parent_id, level, sort_order, status, icon_url,
                path, path_name, seo_keywords, seo_description,
                created_at, updated_at, deleted
         FROM category
@@ -50,7 +48,7 @@
     </select>
 
     <select id="findByLevel" resultType="Category">
-        SELECT id, name, description, parent_id, level, sort_order, status, icon_url,
+        SELECT id, name, parent_id, level, sort_order, status, icon_url,
                path, path_name, seo_keywords, seo_description,
                created_at, updated_at, deleted
         FROM category
@@ -59,7 +57,7 @@
     </select>
 
     <select id="findByParentId" resultType="Category">
-        SELECT id, name, description, parent_id, level, sort_order, status, icon_url,
+        SELECT id, name, parent_id, level, sort_order, status, icon_url,
                path, path_name, seo_keywords, seo_description,
                created_at, updated_at, deleted
         FROM category
@@ -68,7 +66,7 @@
     </select>
 
     <select id="findSubtreeByAncestorId" resultType="Category">
-        SELECT c.id, c.name, c.description, c.parent_id, c.level, c.sort_order, c.status, c.icon_url,
+        SELECT c.id, c.name, c.parent_id, c.level, c.sort_order, c.status, c.icon_url,
                c.path, c.path_name, c.seo_keywords, c.seo_description,
                c.created_at, c.updated_at, c.deleted
         FROM category c
@@ -79,7 +77,7 @@
     </select>
 
     <select id="findAncestorsByDescendantId" resultType="Category">
-        SELECT c.id, c.name, c.description, c.parent_id, c.level, c.sort_order, c.status, c.icon_url,
+        SELECT c.id, c.name, c.parent_id, c.level, c.sort_order, c.status, c.icon_url,
                c.path, c.path_name, c.seo_keywords, c.seo_description,
                c.created_at, c.updated_at, c.deleted
         FROM category c
@@ -90,10 +88,10 @@
     </select>
 
     <select id="findWithDirectChildrenByLevel" resultMap="CategoryMap">
-        SELECT p.id, p.name, p.description, p.parent_id, p.level, p.sort_order, p.status, p.icon_url,
+        SELECT p.id, p.name, p.parent_id, p.level, p.sort_order, p.status, p.icon_url,
                p.path, p.path_name, p.seo_keywords, p.seo_description,
                p.created_at, p.updated_at, p.deleted,
-               c.id AS c_id, c.name AS c_name, c.description AS c_description,
+               c.id AS c_id, c.name AS c_name,
                c.parent_id AS c_parent_id,
                c.level AS c_level, c.sort_order AS c_sort_order, c.status AS c_status,
                c.icon_url AS c_icon_url,
@@ -105,10 +103,10 @@
     </select>
 
     <insert id="insert" parameterType="Category" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO category (name, description, parent_id, level, sort_order, status, icon_url,
+        INSERT INTO category (name, parent_id, level, sort_order, status, icon_url,
                               path, path_name, seo_keywords, seo_description,
                               created_at, updated_at, deleted)
-        VALUES (#{name}, #{description}, #{parentId}, #{level}, #{sortOrder}, #{status}, #{iconUrl},
+        VALUES (#{name}, #{parentId}, #{level}, #{sortOrder}, #{status}, #{iconUrl},
                 #{path}, #{pathName}, #{seoKeywords}, #{seoDescription},
                 #{createdAt}, #{updatedAt}, #{deleted})
     </insert>
@@ -116,7 +114,6 @@
     <update id="update" parameterType="Category">
         UPDATE category
         SET name = #{name},
-            description = #{description},
             parent_id = #{parentId},
             level = #{level},
             sort_order = #{sortOrder},

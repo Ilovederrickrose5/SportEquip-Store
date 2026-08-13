@@ -3,6 +3,8 @@ package com.sportsequipment.service.impl;
 import com.sportsequipment.dto.OrderDTO;
 import com.sportsequipment.dto.OrderItemDTO;
 import com.sportsequipment.dto.PageResponse;
+import com.sportsequipment.dto.mq.OrderCreatedEvent;
+import com.sportsequipment.dto.mq.OrderPendingTimeoutEvent;
 import com.sportsequipment.entity.Order;
 import com.sportsequipment.entity.OrderItem;
 import com.sportsequipment.entity.Product;
@@ -13,11 +15,14 @@ import com.sportsequipment.mapper.OrderItemMapper;
 import com.sportsequipment.mapper.OrderMapper;
 import com.sportsequipment.mapper.ProductMapper;
 import com.sportsequipment.mapper.UserMapper;
+import com.sportsequipment.mq.MqEventPublisher;
+import com.sportsequipment.mq.OrderCancelService;
 import com.sportsequipment.security.UserDetailsImpl;
 import com.sportsequipment.service.OrderService;
 import com.sportsequipment.util.RedisUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -39,15 +44,23 @@ public class OrderServiceImpl implements OrderService {
     private final UserMapper userMapper;
     private final ProductMapper productMapper;
     private final RedisUtil redisUtil;
+    private final MqEventPublisher mqEventPublisher;
+    private final OrderCancelService orderCancelService;
+
+    @Value("${sportsequipment.mq.order-pending-ttl-ms:1800000}")
+    private long orderPendingTtlMs;
 
     public OrderServiceImpl(OrderMapper orderMapper, OrderItemMapper orderItemMapper,
             UserMapper userMapper, ProductMapper productMapper,
-            RedisUtil redisUtil) {
+            RedisUtil redisUtil, MqEventPublisher mqEventPublisher,
+            OrderCancelService orderCancelService) {
         this.orderMapper = orderMapper;
         this.orderItemMapper = orderItemMapper;
         this.userMapper = userMapper;
         this.productMapper = productMapper;
         this.redisUtil = redisUtil;
+        this.mqEventPublisher = mqEventPublisher;
+        this.orderCancelService = orderCancelService;
     }
 
     // 订单列表缓存键前缀
@@ -176,6 +189,11 @@ public class OrderServiceImpl implements OrderService {
         order.setTotalAmount(totalAmountWrapper[0]);
         orderMapper.insert(order);
 
+        // MyBatis 必须通过 useGeneratedKeys 回写自增 id；若未回写直接抛错，避免 order_item 插入 order_id=null
+        if (order.getId() == null) {
+            throw new IllegalStateException("订单创建失败：orderMapper.insert 执行后 order.getId() 为 null，请确认 OrderMapper.xml <insert> 配置了 useGeneratedKeys=\"true\" keyProperty=\"id\"，且 order 表 id 为 AUTO_INCREMENT");
+        }
+
         // 再插入订单项并更新库存（使用分布式锁防止并发超卖）
         for (OrderItemDTO itemDTO : dtoItems) {
             Long productId = itemDTO.getProductId();
@@ -223,8 +241,25 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        // 清除订单列表缓存，保证缓存一致性
-        clearOrderListCache(userId);
+        // —— 同步清理缓存已迁移到 MQ（OrderCreatedConsumer）异步处理，这里不阻塞主链路 ——
+
+        // ====== 事件发布（事务成功后再发；失败不影响主流程，日志留痕） ======
+        try {
+            OrderCreatedEvent created = buildCreatedEvent(order, orderDTO.getOrderItems(), user);
+            mqEventPublisher.publishOrderCreated(created);
+
+            // 只有未支付（PENDING）的订单才发延迟消息：30min后还PENDING就自动取消归还库存
+            if ("PENDING".equals(order.getStatus())) {
+                OrderPendingTimeoutEvent timeout = new OrderPendingTimeoutEvent();
+                timeout.setOrderId(order.getId());
+                timeout.setUserId(order.getUserId());
+                timeout.setCreatedAt(order.getCreatedAt());
+                timeout.setTtlMs(orderPendingTtlMs);
+                mqEventPublisher.publishOrderPendingTimeout(timeout);
+            }
+        } catch (Exception e) {
+            logger.warn("[createOrder] 订单 {} 创建成功但 MQ 发布失败，不影响下单结果", order.getId(), e);
+        }
 
         return mapToOrderDTO(order);
     }
@@ -250,6 +285,23 @@ public class OrderServiceImpl implements OrderService {
             throw new ResourceNotFoundException("Order not found with id: " + id);
         }
 
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+        boolean isAdmin = "ADMIN".equals(userDetails.getRole());
+        Long operatorId = userDetails.getId();
+
+        // 取消订单：统一走 OrderCancelService（库存归还+幂等+缓存清理）
+        if ("CANCELLED".equals(status)) {
+            if (isAdmin) {
+                orderCancelService.cancelOrderAndRestoreStock(id, "ADMIN", operatorId, true);
+            } else {
+                orderCancelService.cancelOrderAndRestoreStock(id, "USER", operatorId, false);
+            }
+            Order refreshed = orderMapper.findById(id);
+            return mapToOrderDTO(refreshed);
+        }
+
+        // 非 CANCELLED 状态直接改（PENDING→PAID→SHIPPED→DELIVERED→COMPLETED）
         order.setStatus(status);
         order.setUpdatedAt(java.time.LocalDateTime.now());
         orderMapper.update(order);
@@ -278,10 +330,19 @@ public class OrderServiceImpl implements OrderService {
             throw new IllegalStateException("Cannot delete order with status: " + order.getStatus());
         }
 
-        orderMapper.deleteById(id);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+        boolean isAdmin = "ADMIN".equals(userDetails.getRole());
+        Long operatorId = userDetails.getId();
 
-        // 清除订单列表缓存，保证缓存一致性
-        clearOrderListCache(order.getUserId());
+        // 删除前：先按"取消订单"语义归还库存（幂等+分布式锁+清缓存），避免超卖+库存泄漏
+        if (isAdmin) {
+            orderCancelService.cancelOrderAndRestoreStock(id, "ADMIN", operatorId, true);
+        } else {
+            orderCancelService.cancelOrderAndRestoreStock(id, "USER", operatorId, false);
+        }
+
+        orderMapper.deleteById(id);
     }
 
     // 检查订单访问权限
@@ -476,5 +537,22 @@ public class OrderServiceImpl implements OrderService {
         redisUtil.deletePattern(ORDER_LIST_CACHE_PREFIX + "user:" + userId + ":*");
         // 清除管理员订单列表缓存
         redisUtil.deletePattern(ORDER_LIST_CACHE_PREFIX + "admin:*");
+    }
+
+    /**
+     * 组装订单创建 MQ 事件 DTO，仅用入参数据（避免 order.* lazy loading 问题）
+     */
+    private OrderCreatedEvent buildCreatedEvent(Order order, List<OrderItemDTO> items, User user) {
+        OrderCreatedEvent e = new OrderCreatedEvent();
+        e.setOrderId(order.getId());
+        e.setUserId(order.getUserId());
+        e.setUsername(user != null ? user.getUsername() : null);
+        e.setTotalAmount(order.getTotalAmount());
+        e.setStatus(order.getStatus());
+        e.setPaymentMethod(order.getPaymentMethod());
+        e.setCreatedAt(order.getCreatedAt());
+        e.setUpdatedAt(order.getUpdatedAt());
+        e.setOrderItems(items == null ? Collections.emptyList() : items);
+        return e;
     }
 }

@@ -15,6 +15,8 @@
 | JWT | 0.11.5 (jjwt) | 身份认证 |
 | Redis | 7.x+ | 缓存服务 |
 | Redisson | 3.26.0 | Redis 客户端 / 分布式锁 |
+| RabbitMQ | 3.x+ | 消息队列（异步解耦 + 延迟消息） |
+| Spring AMQP | 3.x 同 Spring Boot | RabbitMQ 客户端（RabbitTemplate / @RabbitListener） |
 | MySQL | 8.0+ | 数据库 |
 | Java | 17 | JDK 版本 |
 | Maven | 3.6+ | 构建工具 |
@@ -66,6 +68,10 @@
 - 订单列表分页查询与状态筛选
 - 订单详情查询
 - 订单项管理
+- **与 RabbitMQ 联动**：
+  - 下单成功 → 发布 `order.created` 事件，异步清理用户/管理员订单列表缓存、清用户购物车缓存、清商品推荐缓存
+  - 未支付 PENDING 订单 → 发布延迟消息（TTL 30 分钟）到 `order.delay.queue`，超时自动进 `order.cancel.queue` 执行订单取消 + 库存归还
+  - 手动改状态到 CANCELLED / 删除 PENDING 订单，统一走 `OrderCancelService`，保证自动/手动两条路径逻辑一致、幂等
 
 ### 5. 地址模块
 - 收货地址管理
@@ -86,6 +92,24 @@
 - 商品图片上传
 - 上传文件大小限制（默认 10MB）
 
+### 9. 消息队列（RabbitMQ）模块
+- **生产者**：`MqEventPublisher` 统一封装，发送 `OrderCreatedEvent`（订单创建）和 `OrderPendingTimeoutEvent`（待支付超时）
+- **延迟消息实现**：DLX（死信交换机）+ TTL 方案。`order.delay.queue` 带 `x-message-ttl`，过期后经 `order.dlx.exchange` 路由到 `order.cancel.queue`
+- **队列拓扑**：
+  - `order.exchange`（direct）
+    - `order.created.queue`（routingKey=order.created）：异步缓存清理 / 通知
+    - `order.delay.queue`（routingKey=order.delay，TTL=30min，DLX=order.dlx.exchange）：延迟未支付
+  - `order.dlx.exchange`（direct）
+    - `order.cancel.queue`（routingKey=order.cancel）：超时自动取消
+- **幂等消费**：
+  - 订单创建事件消费：`mq:idempotent:order-created:{orderId}`（SETNX + TTL 24h）
+  - 订单取消事件/手动取消/删除统一：`mq:idempotent:order-cancel:{orderId}`
+- **确认机制**：
+  - 消费端 MANUAL ACK：业务成功 ack，首次异常 nack + requeue 重投 1 次；仍失败 nack + drop（死信/人工补偿），避免死循环
+  - 生产端 Publisher Confirm + Returns 回调，写日志留痕
+- **消息序列化**：`Jackson2JsonMessageConverter`，生产者与消费者工厂共用同一个 Converter
+- **公共取消服务**：`OrderCancelService.cancelOrderAndRestoreStock` 承担「权限校验→仅 PENDING→分布式锁归还库存→状态→清缓存→幂等 SET」全链路，用户手动取消、管理员改 CANCELLED、管理员删除 PENDING、MQ 超时取消四条入口共用同一实现
+
 ## 四、项目结构
 
 ### 后端结构
@@ -98,16 +122,18 @@ backend/
 │   ├── mapper/         # MyBatis Mapper 接口层
 │   ├── entity/         # 数据库实体
 │   ├── dto/            # 数据传输对象
-│   ├── config/         # 配置类
+│   │   └── mq/         # MQ 事件 DTO（OrderCreatedEvent、OrderPendingTimeoutEvent）
+│   ├── config/         # 配置类（含 RabbitMQConfig）
 │   ├── security/       # 安全相关（JWT、UserDetails）
 │   ├── exception/      # 异常处理
-│   └── util/           # 工具类（RedisUtil、RedisLockUtil 等）
+│   ├── util/           # 工具类（RedisUtil、RedisLockUtil 等）
+│   └── mq/             # 消息队列组件：MqEventPublisher、OrderCancelService、消费者
 ├── src/main/resources/
 │   ├── mapper/         # MyBatis XML 映射文件
-│   └── application.properties  # 应用配置
+│   └── application.properties  # 应用配置（含 RabbitMQ、订单超时 TTL、幂等 TTL）
 ├── frontend/           # 前端 Vue3 项目
 ├── uploads/            # 上传文件存储目录
-└── pom.xml             # Maven 配置
+└── pom.xml             # Maven 配置（含 spring-boot-starter-amqp）
 ```
 
 ### 前端结构
@@ -286,6 +312,8 @@ frontend/
 | **access_token 黑名单** | `auth:blacklist:{accessJti}` | TTL = access_token 剩余有效期（ms） | /logout 吊销 access_token；TTL 到期 Redis 自动清理，防止黑名单无限膨胀 |
 | **refresh_token 用户绑定** | `auth:refresh:user:{userId}` | TTL = refresh_token 有效期（7 天） | 存储该用户当前唯一有效 refreshJti；用于防重放、单点登录绑定、改密一键踢全端 |
 | **refresh_token 黑名单** | `auth:refresh:blacklist:{refreshJti}` | TTL = 旧 refresh 剩余有效期（ms），兜底 7 天 | Rotation 轮换时作废旧 refresh，防止 refresh 被盗反复重放 |
+| **MQ 幂等（订单创建）** | `mq:idempotent:order-created:{orderId}` | 24h TTL（可配置） | 订单创建事件消费者 SETNX，防止消息重投造成重复缓存清理 |
+| **MQ 幂等（订单取消）** | `mq:idempotent:order-cancel:{orderId}` | 24h TTL（可配置） | 覆盖 MQ 自动取消 / 用户手动取消 / 删除 PENDING 三条入口，防止重复归还库存 |
 
 ### 分布式锁
 | 场景 | 锁 Key 示例 | 作用 |
@@ -295,6 +323,7 @@ frontend/
 | 分类更新/删除 | `lock:category:main:{id}`、`lock:category:sub:{id}`、`lock:category:third:{id}` | 防止同分类并发修改；删除一级/二级时联动清理其下子分类 |
 | 购物车操作 | `cart:lock:{userId}:product:{productId}` | 细粒度锁，提高并发 |
 | 订单扣库存 | `lock:product:{productId}` | leaseTime=30 秒（非 watchdog 自动续期），配合双重库存检查防超卖 |
+| 订单取消归还库存 | `lock:product:{productId}` | MQ 超时取消 / 手动取消 / 删除订单 共用，防止并发取消下库存超加 |
 | 缓存重建（热点商品/分类） | `lock:{cacheKey}`（如 `lock:product:hot:10`） | 单实例重建缓存，防止缓存击穿 |
 
 ### 缓存一致性策略
@@ -302,7 +331,11 @@ frontend/
 - 使用 `@CacheEvict`（`allEntries=true`）清除 Spring Cache 管理的商品/分类命名空间缓存。
 - 使用 `redisUtil.delete()` / `redisUtil.deletePattern()` 清除自定义缓存：
   - Product 创建/更新/删除：额外清除 `product:list`、`product:detail:*`、`product:hot:*`、`product:random:*`
-  - Order 创建：清除该用户所有订单列表缓存（`order:list:user:{userId}:*`）
+  - Order 创建：
+    - **同步链路不再清理缓存**，通过 `order.created` 事件由 `OrderCreatedConsumer` 异步清理，降低下单接口 P99
+    - 异步内容包括：`order:list:user:{userId}:*`、`order:list:admin:*`、`cart:user:{userId}`、`product:hot:*`、`product:random:*`
+  - Order 状态流转非 CANCELLED：同步清 `order:list:user:*` + `order:list:admin:*`
+  - Order 取消/删除：由 `OrderCancelService` 同步清用户+管理员订单缓存 + 相关商品详情缓存
 - Redis 操作（缓存删除、锁获取/释放）不在 Spring 事务之内；如果数据库事务回滚，需要考虑补偿策略或接受短暂不一致。
 
 ## 八、部署说明
@@ -311,6 +344,7 @@ frontend/
 - JDK 17+
 - MySQL 8.0+
 - Redis 7.0+
+- RabbitMQ 3.x+（建议 Docker：`rabbitmq:3.12-management`，需映射 5672/15672）
 - Node.js 18+
 
 ### 数据库初始化
@@ -333,6 +367,22 @@ frontend/
    sportsequipment.app.jwtExpirationMs=86400000            # 兼容旧 token 默认 24h
    sportsequipment.app.accessTokenExpirationMs=900000       # 15分钟
    sportsequipment.app.refreshTokenExpirationMs=604800000   # 7天
+   ```
+5. RabbitMQ 相关配置（`application.properties`）：
+   ```
+   spring.rabbitmq.host=localhost
+   spring.rabbitmq.port=5672
+   spring.rabbitmq.username=guest
+   spring.rabbitmq.password=guest
+   spring.rabbitmq.virtual-host=/
+   spring.rabbitmq.publisher-confirm-type=correlated          # 生产端 Confirm 回调
+   spring.rabbitmq.publisher-returns=true                     # 生产端 Returns 回调（未路由到队列）
+   spring.rabbitmq.listener.simple.acknowledge-mode=manual    # 消费端手动 ACK
+   spring.rabbitmq.listener.simple.prefetch=10                # 预取 10，均衡消费
+   spring.rabbitmq.listener.simple.concurrency=2              # 默认消费者线程数
+   spring.rabbitmq.listener.simple.max-concurrency=8          # 最大消费者线程数
+   sportsequipment.mq.order-pending-ttl-ms=1800000            # PENDING 订单超时 TTL=30min
+   sportsequipment.mq.idempotent-ttl-seconds=86400            # MQ 幂等 Redis key TTL=24h
    ```
 
 ### 启动方式
@@ -385,8 +435,25 @@ npm run dev
 
 ---
 
-*文档版本：v1.2*
-*最后更新：2026-08-13*
+*文档版本：v1.3*
+*最后更新：2026-10-15*
+
+### v1.2 → v1.3 变更摘要
+1. **RabbitMQ 消息队列接入**：
+   - 引入 `spring-boot-starter-amqp`，新增 `RabbitMQConfig`：2 台 direct 交换机（order.exchange / order.dlx.exchange）+ 3 条队列 + DLX 死信路由 + Jackson JSON 序列化 + Publisher Confirm/Returns 回调
+   - 新增 `MqEventPublisher` 统一发布 `OrderCreatedEvent` / `OrderPendingTimeoutEvent`
+   - 新增 `OrderCreatedConsumer`：订单创建后异步清理订单列表缓存、用户购物车缓存、热门/随机商品缓存（下单同步链路不再做清缓存，缩短响应）
+   - 新增 `OrderTimeoutCancelConsumer`：通过 DLX + TTL（默认 30min）实现 PENDING 订单未支付自动取消
+2. **统一订单取消领域服务 `OrderCancelService`**：
+   - 聚合「权限判断 → 仅 PENDING 可取消 → 按商品维度分布式锁归还库存 → 更新订单状态 → 清订单/商品缓存 → Redis 幂等 SET」全流程
+   - 被 4 条入口复用：用户手动改状态 CANCELLED、管理员改 CANCELLED、管理员删除 PENDING 订单、MQ 超时自动取消
+   - 修复原 `deleteOrder(Long)` 删除 PENDING 订单未归还库存造成的库存泄漏
+3. **幂等 & 可靠性兜底**：
+   - 消费端手动 ACK：异常重投 1 次仍失败则 nack+drop 记 error 日志，避免死循环
+   - 生产端 Confirm/Returns 回调日志，发现 broker 可达性或路由配置问题
+   - RedisUtil 新增 `setIfAbsent` 原子 SETNX（Redisson `RBucket.trySet`），支撑幂等 Key
+4. **配置规范补齐**：`application.properties` 新增 RabbitMQ 连接参数、consumer 并发/预取、`order-pending-ttl-ms`、`idempotent-ttl-seconds`
+5. **AGENTS.md 更新**：技术栈加 RabbitMQ / Spring AMQP、新增「消息队列（RabbitMQ）」核心模块、Redis 场景表加 MQ 幂等 Key、分布式锁表加订单取消归还库存的锁、部署文档加环境要求和配置范例
 
 ### v1.1 → v1.2 变更摘要
 1. **用户主动退出登录（JWT 吊销）**：新增 `POST /api/auth/logout`，实现基于 Redis + jti 的 access_token 黑名单，TTL = 剩余有效期自动清理，解决无状态 JWT 无法主动作废的问题。

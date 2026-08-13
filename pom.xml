@@ -73,6 +73,12 @@
             <artifactId>redisson-spring-boot-starter</artifactId>
             <version>3.26.0</version>
         </dependency>
+
+        <!-- RabbitMQ 消息队列 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
+        </dependency>
         
         <dependency>
             <groupId>io.jsonwebtoken</groupId>

@@ -264,6 +264,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
+    @SuppressWarnings({ "deprecation" })
     public List<ProductDTO> getProductsByCategoryAndPrice(Long thirdCategoryId, BigDecimal minPrice,
             BigDecimal maxPrice) {
         // 参数校验
@@ -288,6 +289,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
+    @SuppressWarnings({ "unchecked" })
     public List<ProductDTO> getRandomProducts(int limit) {
         if (limit <= 0) {
             limit = 8;
@@ -296,7 +298,6 @@ public class ProductServiceImpl implements ProductService {
         String cacheKey = RANDOM_PRODUCT_CACHE_PREFIX + limit;
 
         // 先从缓存读取
-        @SuppressWarnings("unchecked")
         List<ProductDTO> cached = redisUtil.get(cacheKey, List.class);
         if (cached != null) {
             return cached;
@@ -333,6 +334,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
+    @SuppressWarnings({ "unchecked" })
     public List<ProductDTO> getHotProducts(int limit) {
         if (limit <= 0) {
             limit = 10;
@@ -341,7 +343,6 @@ public class ProductServiceImpl implements ProductService {
         String cacheKey = HOT_PRODUCT_CACHE_PREFIX + limit;
 
         // 先从缓存读取
-        @SuppressWarnings("unchecked")
         List<ProductDTO> cached = redisUtil.get(cacheKey, List.class);
         if (cached != null) {
             return cached;
@@ -377,6 +378,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     // 转换实体到DTO
+    @SuppressWarnings({ "deprecation" })
     private ProductDTO mapToProductDTO(Product product) {
         if (product == null) {
             throw new IllegalArgumentException("Product cannot be null");

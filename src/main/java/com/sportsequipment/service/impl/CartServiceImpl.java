@@ -289,6 +289,7 @@ public class CartServiceImpl implements CartService {
 
     @Override
     @Transactional(readOnly = true)
+    @SuppressWarnings("null")
     public Integer getCartItemCount() {
         Cart cart = getOrCreateCart();
         return cart.getCartItems().stream()

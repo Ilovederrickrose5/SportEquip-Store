@@ -39,6 +39,22 @@ public class RedisUtil {
         bucket.set(value, duration);
     }
 
+    /**
+     * 原子 SETNX：只有 key 不存在时才写入并设置过期。
+     * 
+     * @return true 写入成功（key 原本不存在）；false 已存在未写入
+     */
+    @SuppressWarnings("deprecation")
+    public Boolean setIfAbsent(String key, Object value, long timeout, TimeUnit unit) {
+        validateKey(key);
+        validateTimeout(timeout);
+        RBucket<Object> bucket = redissonClient.getBucket(key);
+        // Redisson 3.26：(V, long, TimeUnit) 三参仍可正常工作但已标记 deprecated；
+        // 新项目推荐的 (V, Duration) 双参重载在当前 3.26.0 版本的 RBucket 上实际不存在，
+        // 调用会直接编译失败，因此保留稳定的三参签名并压制 deprecation 警告。
+        return bucket.trySet(value, timeout, unit);
+    }
+
     public <T> T get(String key, Class<T> clazz) {
         validateKey(key);
         RBucket<Object> bucket = redissonClient.getBucket(key);
