@@ -110,16 +110,28 @@ public class RabbitMQConfig {
     public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory, MessageConverter messageConverter) {
         RabbitTemplate tpl = new RabbitTemplate(connectionFactory);
         tpl.setMessageConverter(messageConverter);
-        // 生产者 confirm：消息到达 broker 交换机回调
+        // 生产者 confirm：消息到达 broker 交换机回调；通过 correlationId 关联到具体业务 orderId
         tpl.setConfirmCallback((correlationData, ack, cause) -> {
-            if (!ack) {
-                log.warn("[RabbitMQ] 消息未到达交换机，correlation={}, cause={}", correlationData, cause);
+            String cid = correlationData != null ? correlationData.getId() : "<null>";
+            if (ack) {
+                log.debug("[RabbitMQ-Confirm] OK correlation={}", cid);
+            } else {
+                // correlationId 格式：evt:orderCreated:{orderId}:{uuid} / evt:orderDelay:{orderId}:{uuid}
+                log.error("[RabbitMQ-Confirm] FAIL(消息未到达交换机) correlation={}, cause={}", cid, cause);
             }
         });
-        // 生产者 return：消息从交换机能出来但没路由到队列
-        tpl.setReturnsCallback(returned -> log.warn("[RabbitMQ] 消息未路由到队列，exchange={}, rk={}, reply={}, body={}",
-                returned.getExchange(), returned.getRoutingKey(), returned.getReplyText(),
-                new String(returned.getMessage().getBody())));
+        // 生产者 return：消息从交换机能出来但没路由到队列（典型：routingKey 错、binding 丢失）
+        tpl.setReturnsCallback(returned -> {
+            String cid = returned.getMessage().getMessageProperties() != null
+                    ? returned.getMessage().getMessageProperties().getHeader("spring_returned_message_correlation")
+                    : null;
+            log.error("[RabbitMQ-Returns] 消息未路由到队列 correlation={}, exchange={}, rk={}, reply={}, body={}",
+                    cid,
+                    returned.getExchange(),
+                    returned.getRoutingKey(),
+                    returned.getReplyText(),
+                    new String(returned.getMessage().getBody()));
+        });
         return tpl;
     }
 

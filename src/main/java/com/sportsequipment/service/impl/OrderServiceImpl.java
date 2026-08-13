@@ -246,19 +246,29 @@ public class OrderServiceImpl implements OrderService {
         // ====== 事件发布（事务成功后再发；失败不影响主流程，日志留痕） ======
         try {
             OrderCreatedEvent created = buildCreatedEvent(order, orderDTO.getOrderItems(), user);
-            mqEventPublisher.publishOrderCreated(created);
+            boolean createdSent = mqEventPublisher.publishOrderCreated(created);
+            if (!createdSent) {
+                logger.error("[createOrder] orderId={} 订单创建成功但 OrderCreatedEvent MQ 发布未成功，请查 ERROR 日志中的 connection / serialize / routing 异常", order.getId());
+            }
 
             // 只有未支付（PENDING）的订单才发延迟消息：30min后还PENDING就自动取消归还库存
+            // ✅ 业务设计：当前无支付环节，所有订单选 paymentMethod 就走 PAID，本条延迟消息 0 条完全符合预期
             if ("PENDING".equals(order.getStatus())) {
                 OrderPendingTimeoutEvent timeout = new OrderPendingTimeoutEvent();
                 timeout.setOrderId(order.getId());
                 timeout.setUserId(order.getUserId());
                 timeout.setCreatedAt(order.getCreatedAt());
                 timeout.setTtlMs(orderPendingTtlMs);
-                mqEventPublisher.publishOrderPendingTimeout(timeout);
+                boolean timeoutSent = mqEventPublisher.publishOrderPendingTimeout(timeout);
+                if (!timeoutSent) {
+                    logger.error("[createOrder] orderId={} PENDING 订单 OrderPendingTimeoutEvent 延迟消息发布未成功，请查 ERROR 日志", order.getId());
+                }
+            } else {
+                logger.info("[createOrder] orderId={} status={}，按业务设计跳过 PENDING 超时延迟消息（仅 PENDING 需要 30min 自动关单）", order.getId(), order.getStatus());
             }
         } catch (Exception e) {
-            logger.warn("[createOrder] 订单 {} 创建成功但 MQ 发布失败，不影响下单结果", order.getId(), e);
+            // 兜底：Publisher 内部理论已 try/catch，这里只是双保险
+            logger.error("[createOrder] orderId={} 创建成功但 MQ 发布链路抛未预期异常", order.getId(), e);
         }
 
         return mapToOrderDTO(order);
