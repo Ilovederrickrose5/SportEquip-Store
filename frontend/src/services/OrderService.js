@@ -90,8 +90,9 @@ class OrderService {
    */
   async getUserOrders() {
     try {
-      // 修改路径为根路径，与后端OrderController中的GET /api/orders端点匹配
-      const response = await this.axiosInstance.get('');
+      // 对应后端 OrderController 中的 GET /api/orders/list 接口：返回 List<OrderDTO> 纯数组
+      // 注意：GET /api/orders（不带/list）返回的是 PageResponse 分页对象，不能直接赋给 this.orders 后调用 .sort
+      const response = await this.axiosInstance.get('/list');
       return response.data;
     } catch (error) {
       console.error('获取用户订单失败:', error);

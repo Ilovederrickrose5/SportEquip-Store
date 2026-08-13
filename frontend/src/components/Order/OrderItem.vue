@@ -16,10 +16,10 @@
         @click="handleViewDetails"
       >
         <div class="product-info">
-          <span class="product-name">{{ item.productName }}</span>
+          <span class="product-name">{{ item.productName || '未知商品' }}</span>
           <div class="product-price-qty">
-            <span class="product-price">¥{{ item.price.toFixed(2) }}</span>
-            <span class="product-quantity">x{{ item.quantity }}</span>
+            <span class="product-price">¥{{ formatPrice(item.price) }}</span>
+            <span class="product-quantity">x{{ item.quantity ?? 0 }}</span>
           </div>
         </div>
       </div>
@@ -28,7 +28,7 @@
     <div class="order-footer">
       <div class="order-total">
         <span>共 {{ itemCount }} 件商品</span>
-        <span class="total-amount">合计: ¥{{ order.totalAmount.toFixed(2) }}</span>
+        <span class="total-amount">合计: ¥{{ formatPrice(order.totalAmount) }}</span>
       </div>
       <div class="order-actions">
         <el-button type="primary" size="small" @click="handleViewDetails">
@@ -74,6 +74,14 @@ export default {
     }
   },
   methods: {
+    /**
+     * 金额/价格格式化：null/undefined/NaN → 0.00
+     * 避免渲染时 "Cannot read properties of undefined (reading 'toFixed')" 导致整个组件渲染崩溃
+     */
+    formatPrice(val) {
+      const num = Number(val);
+      return Number.isFinite(num) ? num.toFixed(2) : '0.00';
+    },
     formatDate(dateString) {
       const date = new Date(dateString);
       return date.toLocaleString('zh-CN', {

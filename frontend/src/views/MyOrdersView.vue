@@ -75,21 +75,46 @@ export default {
     async fetchOrders() {
       try {
         this.loading = true;
-        const orders = await OrderService.getUserOrders();
-        
-        // 根据状态筛选
+        const rawOrders = await OrderService.getUserOrders();
+
+        // ---- 核心兜底 1：后端返回值必须是数组，否则一律降级为空数组 ----
+        // 防止接口调错 / 缓存脏数据 / 后端返回 PageResponse 对象时，后续 .sort/.filter 直接炸
+        let orders = Array.isArray(rawOrders)
+          ? rawOrders
+          : (rawOrders && Array.isArray(rawOrders.content) ? rawOrders.content : []);
+
+        // ---- 核心兜底 2：每个 order 必须是对象，orderItems 必须是数组（防止 OrderItem 渲染炸）----
+        orders = orders.map(order => {
+          if (!order || typeof order !== 'object') return null;
+          return {
+            ...order,
+            orderItems: Array.isArray(order.orderItems) ? order.orderItems : []
+          };
+        }).filter(Boolean);
+
+        // 根据状态筛选（筛选前再判一次，极端保护）
         if (this.statusFilter) {
-          this.orders = orders.filter(order => order.status === this.statusFilter);
+          this.orders = orders.filter(order => order && order.status === this.statusFilter);
         } else {
           this.orders = orders;
         }
-        
-        // 按创建时间倒序排列
-        this.orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        // 按创建时间倒序排列（排序前强制再次保证 this.orders 是数组，杜绝 sort is not a function）
+        if (Array.isArray(this.orders)) {
+          this.orders.sort((a, b) => {
+            const ta = new Date(a && a.createdAt ? a.createdAt : 0).getTime();
+            const tb = new Date(b && b.createdAt ? b.createdAt : 0).getTime();
+            return tb - ta;
+          });
+        } else {
+          this.orders = [];
+        }
       } catch (error) {
         console.error('获取订单失败:', error);
+        this.orders = []; // 兜底：错误时置空数组，避免旧脏数据
         this.$message.error(error.response?.data?.message || '获取订单失败');
       } finally {
+        // 无论成功/异常/中途 return，一律把 loading 置为 false，防止视觉永远转圈
         this.loading = false;
       }
     },
