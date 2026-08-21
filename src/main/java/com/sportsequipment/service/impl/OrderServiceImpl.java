@@ -19,6 +19,7 @@ import com.sportsequipment.mq.MqEventPublisher;
 import com.sportsequipment.mq.OrderCancelService;
 import com.sportsequipment.security.UserDetailsImpl;
 import com.sportsequipment.service.OrderService;
+import com.sportsequipment.service.OrderTxService;
 import com.sportsequipment.util.RedisUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,7 +30,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -46,6 +49,7 @@ public class OrderServiceImpl implements OrderService {
     private final RedisUtil redisUtil;
     private final MqEventPublisher mqEventPublisher;
     private final OrderCancelService orderCancelService;
+    private final OrderTxService orderTxService;
 
     @Value("${sportsequipment.mq.order-pending-ttl-ms:1800000}")
     private long orderPendingTtlMs;
@@ -53,7 +57,7 @@ public class OrderServiceImpl implements OrderService {
     public OrderServiceImpl(OrderMapper orderMapper, OrderItemMapper orderItemMapper,
             UserMapper userMapper, ProductMapper productMapper,
             RedisUtil redisUtil, MqEventPublisher mqEventPublisher,
-            OrderCancelService orderCancelService) {
+            OrderCancelService orderCancelService, OrderTxService orderTxService) {
         this.orderMapper = orderMapper;
         this.orderItemMapper = orderItemMapper;
         this.userMapper = userMapper;
@@ -61,6 +65,7 @@ public class OrderServiceImpl implements OrderService {
         this.redisUtil = redisUtil;
         this.mqEventPublisher = mqEventPublisher;
         this.orderCancelService = orderCancelService;
+        this.orderTxService = orderTxService;
     }
 
     // 订单列表缓存键前缀
@@ -120,8 +125,8 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    @Transactional
     public OrderDTO createOrder(OrderDTO orderDTO) {
+        // ==================== 阶段 1：无锁用户校验 ====================
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
 
@@ -134,37 +139,13 @@ public class OrderServiceImpl implements OrderService {
             throw new ResourceNotFoundException("User not found with id: " + userId);
         }
 
-        // 创建订单
-        Order order = new Order();
-        order.setUser(user);
-        order.setUserId(userId);
-        // 设置支付方式
-        order.setPaymentMethod(orderDTO.getPaymentMethod());
-        // 根据是否选择了支付方式设置订单状态：选择了支付方式则为已支付(PAID)，否则为待支付(PENDING)
-        if (orderDTO.getPaymentMethod() != null && !orderDTO.getPaymentMethod().isEmpty()) {
-            order.setStatus("PAID");
-        } else {
-            order.setStatus("PENDING");
-        }
-        order.setShippingAddress(orderDTO.getShippingAddress());
-        order.setPhone(orderDTO.getPhone());
-        // 设置收货人姓名，如果DTO中没有提供，则使用用户名
-        order.setRecipientName(orderDTO.getRecipientName() != null ? orderDTO.getRecipientName() : user.getUsername());
-        // 设置订单备注
-        order.setRemark(orderDTO.getRemark());
-        order.setCreatedAt(java.time.LocalDateTime.now());
-        order.setUpdatedAt(java.time.LocalDateTime.now());
-
-        // 使用数组来存储可变的BigDecimal值
-        BigDecimal[] totalAmountWrapper = { BigDecimal.ZERO };
-
-        // 创建订单项
         List<OrderItemDTO> dtoItems = orderDTO.getOrderItems();
         if (dtoItems == null || dtoItems.isEmpty()) {
             throw new IllegalStateException("Order must contain at least one order item");
         }
 
-        // 先计算总金额并验证库存
+        // ==================== 阶段 2：第一次库存预检（无锁，快速失败）+ 计算总金额 ====================
+        BigDecimal totalAmount = BigDecimal.ZERO;
         for (OrderItemDTO itemDTO : dtoItems) {
             Long productId = itemDTO.getProductId();
             if (productId == null) {
@@ -174,104 +155,86 @@ public class OrderServiceImpl implements OrderService {
             if (product == null) {
                 throw new ResourceNotFoundException("Product not found with id: " + productId);
             }
-
-            // 检查库存
             if (product.getStock() < itemDTO.getQuantity()) {
                 throw new IllegalArgumentException("Insufficient stock for product: " + product.getName());
             }
-
-            // 累加总金额
-            totalAmountWrapper[0] = totalAmountWrapper[0]
-                    .add(product.getPrice().multiply(BigDecimal.valueOf(itemDTO.getQuantity())));
+            totalAmount = totalAmount.add(product.getPrice().multiply(BigDecimal.valueOf(itemDTO.getQuantity())));
         }
 
-        // 设置总金额后再插入订单
-        order.setTotalAmount(totalAmountWrapper[0]);
-        orderMapper.insert(order);
+        // ==================== 阶段 3：排序拿所有商品的分布式锁（事务外，防死锁）====================
+        // 3.1 对 productId 去重 + 升序排序：所有请求按同一顺序拿锁，彻底避免 A 拿锁1等锁2、B 拿锁2等锁1 的死锁
+        List<Long> sortedUniqueProductIds = dtoItems.stream()
+                .map(OrderItemDTO::getProductId)
+                .distinct()
+                .sorted(Comparator.nullsLast(Comparator.naturalOrder()))
+                .collect(Collectors.toList());
 
-        // MyBatis 必须通过 useGeneratedKeys 回写自增 id；若未回写直接抛错，避免 order_item 插入 order_id=null
-        if (order.getId() == null) {
-            throw new IllegalStateException("订单创建失败：orderMapper.insert 执行后 order.getId() 为 null，请确认 OrderMapper.xml <insert> 配置了 useGeneratedKeys=\"true\" keyProperty=\"id\"，且 order 表 id 为 AUTO_INCREMENT");
-        }
-
-        // 再插入订单项并更新库存（使用分布式锁防止并发超卖）
-        for (OrderItemDTO itemDTO : dtoItems) {
-            Long productId = itemDTO.getProductId();
-
-            // 分布式锁，防止并发扣库存导致超卖
-            String lockKey = "lock:product:" + productId;
-            try {
+        // 3.2 依次拿锁，用一个列表记录"成功拿到的锁 key"，finally 里按顺序释放
+        List<String> acquiredLockKeys = new ArrayList<>(sortedUniqueProductIds.size());
+        try {
+            for (Long productId : sortedUniqueProductIds) {
+                String lockKey = "lock:product:" + productId;
+                // waitTime=10s：允许排队等待；leaseTime=30s：显式过期，不开 watchdog，防止服务宕机锁永久持有
                 boolean locked = redisUtil.tryLock(lockKey, 10, 30, TimeUnit.SECONDS);
                 if (!locked) {
-                    throw new RuntimeException("系统繁忙，请稍后再试");
+                    throw new RuntimeException("系统繁忙，请稍后再试（商品ID=" + productId + " 锁获取超时）");
+                }
+                acquiredLockKeys.add(lockKey);
+                logger.debug("[createOrder] 拿到锁 productId={}, lockKey={}", productId, lockKey);
+            }
+
+            // ==================== 阶段 4：锁已拿齐 → 通过代理调 OrderTxService 开事务
+            // ====================
+            // ✅ 关键：锁在事务外，事务方法返回时 Spring 会先提交/回滚事务，控制权回到这里后才进 finally 释放锁
+            // 顺序变成：拿锁 → 开事务 → 扣库存写订单 → 提交事务 → 释放锁（标准生产级顺序）
+            Order order = orderTxService.doCreateOrderInTx(orderDTO, dtoItems, totalAmount, user);
+
+            // ==================== 阶段 5：事务已提交成功 → 发 MQ 异步消息 ====================
+            // 注意：MQ 发送在事务提交之后、锁释放之前。MQ 失败只记日志，不回滚已提交的 DB。
+            try {
+                OrderCreatedEvent created = buildCreatedEvent(order, orderDTO.getOrderItems(), user);
+                boolean createdSent = mqEventPublisher.publishOrderCreated(created);
+                if (!createdSent) {
+                    logger.error(
+                            "[createOrder] orderId={} 订单创建成功但 OrderCreatedEvent MQ 发布未成功，请查 ERROR 日志中的 connection / serialize / routing 异常",
+                            order.getId());
                 }
 
-                // 再次检查库存（双重检查）
-                Product product = productMapper.findById(productId);
-                if (product == null) {
-                    throw new ResourceNotFoundException("Product not found with id: " + productId);
+                // 只有未支付（PENDING）的订单才发延迟消息：30min后还PENDING就自动取消归还库存
+                if ("PENDING".equals(order.getStatus())) {
+                    OrderPendingTimeoutEvent timeout = new OrderPendingTimeoutEvent();
+                    timeout.setOrderId(order.getId());
+                    timeout.setUserId(order.getUserId());
+                    timeout.setCreatedAt(order.getCreatedAt());
+                    timeout.setTtlMs(orderPendingTtlMs);
+                    boolean timeoutSent = mqEventPublisher.publishOrderPendingTimeout(timeout);
+                    if (!timeoutSent) {
+                        logger.error(
+                                "[createOrder] orderId={} PENDING 订单 OrderPendingTimeoutEvent 延迟消息发布未成功，请查 ERROR 日志",
+                                order.getId());
+                    }
+                } else {
+                    logger.info("[createOrder] orderId={} status={}，按业务设计跳过 PENDING 超时延迟消息（仅 PENDING 需要 30min 自动关单）",
+                            order.getId(), order.getStatus());
                 }
+            } catch (Exception e) {
+                logger.error("[createOrder] orderId={} 创建成功但 MQ 发布链路抛未预期异常", order.getId(), e);
+            }
 
-                if (product.getStock() < itemDTO.getQuantity()) {
-                    throw new IllegalArgumentException("库存不足：" + product.getName() + "（剩余：" + product.getStock() + "）");
+            return mapToOrderDTO(order);
+
+        } finally {
+            // ==================== 阶段 6：事务提交/回滚完毕 → 释放所有锁（倒序释放更对称）====================
+            // 用反向遍历：拿锁顺序 1→2→3，放锁顺序 3→2→1，和拿锁对称，避免边缘场景嵌套依赖
+            for (int i = acquiredLockKeys.size() - 1; i >= 0; i--) {
+                String lockKey = acquiredLockKeys.get(i);
+                try {
+                    redisUtil.unlock(lockKey);
+                } catch (Exception e) {
+                    logger.error("[createOrder] 释放锁失败 lockKey={}，依赖 30s leaseTime 兜底自动过期", lockKey, e);
                 }
-
-                // 减少库存
-                product.setStock(product.getStock() - itemDTO.getQuantity());
-                product.setUpdatedAt(java.time.LocalDateTime.now());
-                productMapper.update(product);
-
-                // 清除商品缓存，保证缓存一致性
-                redisUtil.delete("product:detail::" + productId);
-
-                // 创建订单项
-                OrderItem orderItem = new OrderItem();
-                orderItem.setOrder(order);
-                orderItem.setOrderId(order.getId());
-                orderItem.setProduct(product);
-                orderItem.setProductId(productId);
-                orderItem.setQuantity(itemDTO.getQuantity());
-                orderItem.setPrice(product.getPrice());
-
-                // 插入订单项
-                orderItemMapper.insert(orderItem);
-
-            } finally {
-                redisUtil.unlock(lockKey);
             }
         }
-
-        // —— 同步清理缓存已迁移到 MQ（OrderCreatedConsumer）异步处理，这里不阻塞主链路 ——
-
-        // ====== 事件发布（事务成功后再发；失败不影响主流程，日志留痕） ======
-        try {
-            OrderCreatedEvent created = buildCreatedEvent(order, orderDTO.getOrderItems(), user);
-            boolean createdSent = mqEventPublisher.publishOrderCreated(created);
-            if (!createdSent) {
-                logger.error("[createOrder] orderId={} 订单创建成功但 OrderCreatedEvent MQ 发布未成功，请查 ERROR 日志中的 connection / serialize / routing 异常", order.getId());
-            }
-
-            // 只有未支付（PENDING）的订单才发延迟消息：30min后还PENDING就自动取消归还库存
-            // ✅ 业务设计：当前无支付环节，所有订单选 paymentMethod 就走 PAID，本条延迟消息 0 条完全符合预期
-            if ("PENDING".equals(order.getStatus())) {
-                OrderPendingTimeoutEvent timeout = new OrderPendingTimeoutEvent();
-                timeout.setOrderId(order.getId());
-                timeout.setUserId(order.getUserId());
-                timeout.setCreatedAt(order.getCreatedAt());
-                timeout.setTtlMs(orderPendingTtlMs);
-                boolean timeoutSent = mqEventPublisher.publishOrderPendingTimeout(timeout);
-                if (!timeoutSent) {
-                    logger.error("[createOrder] orderId={} PENDING 订单 OrderPendingTimeoutEvent 延迟消息发布未成功，请查 ERROR 日志", order.getId());
-                }
-            } else {
-                logger.info("[createOrder] orderId={} status={}，按业务设计跳过 PENDING 超时延迟消息（仅 PENDING 需要 30min 自动关单）", order.getId(), order.getStatus());
-            }
-        } catch (Exception e) {
-            // 兜底：Publisher 内部理论已 try/catch，这里只是双保险
-            logger.error("[createOrder] orderId={} 创建成功但 MQ 发布链路抛未预期异常", order.getId(), e);
-        }
-
-        return mapToOrderDTO(order);
     }
 
     @Override

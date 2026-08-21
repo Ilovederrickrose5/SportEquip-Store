@@ -11,6 +11,7 @@
 - **ORM**：MyBatis 3.0.3（mybatis-spring-boot-starter）
 - **数据库**：MySQL 8.0+
 - **缓存**：Redis 7.0+ + Redisson 3.26.0
+- **消息队列**：RabbitMQ 3.x+（spring-boot-starter-amqp）
 - **安全认证**：Spring Security + JWT（jjwt 0.11.5）
 - **构建工具**：Maven
 - **Java版本**：JDK 17
@@ -43,6 +44,15 @@
 - 订单创建、状态管理
 - 订单历史查询与管理（支持分页和状态筛选）
 - 订单详情查看
+- **订单异步解耦**：下单成功通过 `order.created` 事件异步清理订单/购物车/商品推荐缓存，降低下单接口耗时
+- **超时未支付自动关单**：PENDING 订单通过 RabbitMQ DLX + TTL（30min）延迟消息超时自动取消并归还库存
+
+### 消息队列（RabbitMQ）
+- 统一封装 `MqEventPublisher` 发布 `OrderCreatedEvent` / `OrderPendingTimeoutEvent`
+- 队列拓扑：`order.exchange`（direct）→ `order.created.queue`；`order.delay.queue`（TTL+DLX）→ `order.cancel.queue`
+- 幂等消费：基于 Redis SETNX（`mq:idempotent:order-created:{orderId}`、`mq:idempotent:order-cancel:{orderId}`，TTL=24h）
+- 可靠性：消费端手动 ACK + 重投 1 次兜底；生产端 Publisher Confirm + Returns 回调（NO_ROUTE 升级 ERROR 日志）
+- 公共取消服务 `OrderCancelService`：用户手动取消 / 管理员改 CANCELLED / 删除 PENDING / MQ 超时 四条入口共用
 
 ### 其他功能
 - 文件上传（支持头像、商品图片）
@@ -64,10 +74,11 @@ backend/
 │   │   │       ├── service/impl/ # 业务逻辑实现
 │   │   │       ├── mapper/       # MyBatis Mapper接口
 │   │   │       ├── entity/       # 数据库实体
-│   │   │       ├── dto/          # 数据传输对象
-│   │   │       ├── config/       # 配置类
+│   │   │       ├── dto/          # 数据传输对象（含 mq/ 子包事件 DTO）
+│   │   │       ├── config/       # 配置类（含 RabbitMQConfig）
 │   │   │       ├── security/     # JWT与安全相关
 │   │   │       ├── exception/    # 异常处理
+│   │   │       ├── mq/           # 消息队列组件（MqEventPublisher、OrderCancelService、消费者）
 │   │   │       └── util/         # 工具类
 │   │   └── resources/
 │   │       ├── mapper/           # MyBatis XML映射文件
@@ -96,6 +107,7 @@ backend/
 - JDK 17 或更高版本
 - MySQL 8.0+ 或 MySQL 5.7
 - Redis 7.0+
+- RabbitMQ 3.x+（建议 Docker：`rabbitmq:3.12-management`，映射 5672/15672）
 - Maven 3.6+
 - 足够的磁盘空间用于文件上传
 
@@ -217,6 +229,7 @@ npm run dev
 - **数据库配置**：数据库连接 URL、用户名、密码
 - **MyBatis 配置**：Mapper 扫描路径、驼峰命名转换
 - **Redis 配置**：Redis 连接信息、连接池
+- **RabbitMQ 配置**：连接参数、Publisher Confirm/Returns、消费端手动 ACK 与并发预取、订单超时 TTL（30min）、幂等 TTL（24h）
 - **JWT 配置**：密钥和过期时间
 - **文件上传配置**：上传目录和最大文件大小
 - **CORS 配置**：允许跨域的前端地址
@@ -226,10 +239,11 @@ npm run dev
 
 1. **数据库配置**：确保数据库连接信息正确，数据库已创建
 2. **Redis 配置**：确保 Redis 服务已启动，连接信息正确
-3. **文件上传目录**：确保 `uploads` 目录存在且有正确的读写权限
-4. **端口占用**：默认后端使用 8080 端口，前端使用 5173 端口，请确保这些端口未被占用
-5. **密码安全**：生产环境必须将自定义明文 PasswordEncoder 替换为 BCryptPasswordEncoder
-6. **JWT 安全**：生产环境请修改默认的 JWT 密钥和数据库密码
+3. **RabbitMQ 配置**：确保 RabbitMQ 服务已启动（管理面板 `http://localhost:15672`），`order.delay.queue` Features 应为 D+TTL+DLX+DLK
+4. **文件上传目录**：确保 `uploads` 目录存在且有正确的读写权限
+5. **端口占用**：默认后端使用 8080 端口，前端使用 5173 端口，请确保这些端口未被占用
+6. **密码安全**：生产环境必须将自定义明文 PasswordEncoder 替换为 BCryptPasswordEncoder
+7. **JWT 安全**：生产环境请修改默认的 JWT 密钥和数据库密码
 
 ## 常见问题
 
@@ -241,6 +255,14 @@ npm run dev
 ### Redis 连接失败
 - 检查 Redis 服务是否运行
 - 验证 `application.properties` 中的 Redis 配置是否正确
+
+### RabbitMQ 连接失败 / 消息积压
+- 检查 RabbitMQ 服务是否运行（管理面板 `http://localhost:15672`，默认 guest/guest）
+- 确认 `spring.rabbitmq.template.mandatory=true` 已开启，否则 Returns 回调不生效
+- 查看 Queues 页面：`order.created.queue`、`order.delay.queue`、`order.cancel.queue` 是否存在
+- `order.delay.queue` Features 应包含 D、TTL、DLX、DLK 四项，缺失会导致超时关单失效
+- PENDING 订单超时未关单：检查 `sportsequipment.mq.order-pending-ttl-ms` 是否为 1800000（30min）
+- 消费端日志出现 NO_ROUTE：检查交换机/队列 binding 是否丢失
 
 ### 文件上传失败
 - 检查上传目录是否存在且有读写权限
