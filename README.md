@@ -52,7 +52,7 @@
 - 队列拓扑：`order.exchange`（direct）→ `order.created.queue`；`order.delay.queue`（TTL+DLX）→ `order.cancel.queue`
 - 幂等消费：基于 Redis SETNX（`mq:idempotent:order-created:{orderId}`、`mq:idempotent:order-cancel:{orderId}`，TTL=24h）
 - 可靠性：消费端手动 ACK + 重投 1 次兜底；生产端 Publisher Confirm + Returns 回调（NO_ROUTE 升级 ERROR 日志）
-- 公共取消服务 `OrderCancelService`：用户手动取消 / 管理员改 CANCELLED / 删除 PENDING / MQ 超时 四条入口共用
+- 公共取消服务 `OrderCancelService`：用户手动取消 / 管理员改 CANCELLED / 删除 PENDING / MQ 超时 四条入口共用；采用「锁在事务外」模式，外层协调拿锁/清缓存/幂等 SET，通过代理调用 `OrderCancelTxService`（`@Transactional`）完成库存归还 + 状态更新，保证「事务先提交 → 锁后释放」
 
 ### 其他功能
 - 文件上传（支持头像、商品图片）
@@ -70,8 +70,8 @@ backend/
 │   │   ├── java/             # Java源代码
 │   │   │   └── com/sportsequipment/
 │   │   │       ├── controller/   # REST API控制器
-│   │   │       ├── service/      # 业务逻辑接口
-│   │   │       ├── service/impl/ # 业务逻辑实现
+│   │   │       ├── service/      # 业务逻辑接口（含 OrderTxService、OrderCancelTxService 事务代理接口）
+│   │   │       ├── service/impl/ # 业务逻辑实现（含对应事务实现类）
 │   │   │       ├── mapper/       # MyBatis Mapper接口
 │   │   │       ├── entity/       # 数据库实体
 │   │   │       ├── dto/          # 数据传输对象（含 mq/ 子包事件 DTO）
@@ -188,7 +188,7 @@ INSERT INTO main_category (id, name, description) VALUES (2, '运动装备', '�
 
 ### 后端运行
 
-1. 确保数据库和 Redis 已启动
+1. 确保数据库、Redis、RabbitMQ 已启动（或直接运行项目根目录的 `start-all.bat` 一键启动 Redis + RabbitMQ + 后端 + 前端）
 2. 确保 `uploads` 目录存在且有读写权限
 3. 进入项目根目录
 4. 执行以下命令启动后端服务：
