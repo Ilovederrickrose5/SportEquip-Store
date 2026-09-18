@@ -54,10 +54,33 @@ public interface ProductMapper {
 
     /**
      * 根据ID删除商品
-     * 
+     *
      * @param id 商品ID
      */
     void deleteById(Long id);
+
+    /**
+     * 原子条件扣减库存（数据库层面防超卖的最终兜底）。
+     * SQL：UPDATE product SET stock = stock - #{quantity} WHERE id = #{id} AND stock &gt;= #{quantity}
+     * 即使 Redis 分布式锁提前过期导致并发请求同时进入，MySQL 行锁 + stock &gt;= 条件
+     * 也会让库存不足的那条 UPDATE 影响行数为 0，物理上不可能扣成负数。
+     *
+     * @param id       商品ID
+     * @param quantity 扣减数量（必须为正数）
+     * @return 影响行数：1=扣减成功；0=库存不足或商品不存在（调用方应抛异常回滚事务）
+     */
+    int deductStock(@Param("id") Long id, @Param("quantity") int quantity);
+
+    /**
+     * 原子归还库存（取消订单时使用）。
+     * SQL：UPDATE product SET stock = stock + #{quantity} WHERE id = #{id}
+     * 数据库内原子自增，避免读-改-写在并发下的丢失更新问题。
+     *
+     * @param id       商品ID
+     * @param quantity 归还数量（必须为正数）
+     * @return 影响行数：1=归还成功；0=商品不存在（调用方按需告警）
+     */
+    int addStock(@Param("id") Long id, @Param("quantity") int quantity);
 
     /**
      * 根据三级分类ID查询商品（过渡期保留旧字段）

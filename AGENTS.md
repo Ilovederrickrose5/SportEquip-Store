@@ -64,7 +64,10 @@
 ### 4. 订单模块
 - 下单流程
 - 订单状态流转（PENDING / PAID / SHIPPED / DELIVERED / COMPLETED / CANCELLED）
-- 库存扣减（分布式锁防止超卖）
+- 库存扣减（三层防超卖：无锁预检 → Redis 分布式锁+锁内二次检查 → **DB 原子条件 UPDATE 兜底**）
+  - 扣减 SQL：`UPDATE product SET stock = stock - #{quantity} WHERE id = #{id} AND stock >= #{quantity}`（`ProductMapper.deductStock`），影响行数=0 即库存不足，抛 RuntimeException 回滚整个下单事务
+  - 归还 SQL：`UPDATE product SET stock = stock + #{quantity} WHERE id = #{id}`（`ProductMapper.addStock`），取消订单时 DB 内原子自增
+  - 即使锁因 leaseTime=30s 提前过期 / Redis 不可用，MySQL 当前读+行锁仍保证物理上不可能扣成负数；Redis 锁是并发协调与性能手段，DB 约束才是正确性最终保证
 - 订单列表分页查询与状态筛选
 - 订单详情查询
 - 订单项管理
@@ -113,7 +116,9 @@
   - 生产端 **Returns 回调**（交换机有、但 routingKey 无匹配队列 = NO_ROUTE）：统一 **ERROR 级日志**，打印 correlationId、exchange、routingKey、reply、body，快速发现 binding 丢失/配置漂移类问题
   - 应用侧要求 `spring.rabbitmq.template.mandatory=true` 开启，否则 Returns 回调不会触发
 - **消息序列化**：`Jackson2JsonMessageConverter`，生产者与消费者工厂共用同一个 Converter
-- **公共取消服务**：`OrderCancelService.cancelOrderAndRestoreStock` 承担「权限校验→仅 PENDING→分布式锁归还库存→状态→清缓存→幂等 SET」全链路，用户手动取消、管理员改 CANCELLED、管理员删除 PENDING、MQ 超时取消四条入口共用同一实现
+- **公共取消服务（锁在事务外两层结构）**：
+  - 外层 `OrderCancelService.cancelOrderAndRestoreStock`（**无 `@Transactional`**）承担「幂等检查→权限校验→仅 PENDING→按 productId 升序拿全部商品锁→调代理事务方法→事务提交后清缓存+幂等 SET→finally 倒序释放锁」，用户手动取消、管理员改 CANCELLED、管理员删除 PENDING、MQ 超时取消四条入口共用同一实现
+  - 内层 `OrderCancelTxService.restoreStockAndMarkCancelledInTx`（`@Transactional`）只做纯 DB 写：`addStock` 原子归还库存 + 订单置 CANCELLED；通过 Spring 代理调用保证「**事务先提交 → 锁后释放**」，杜绝锁释放后事务未提交的并发窗口；幂等 SET 在事务提交后执行，避免回滚后被幂等误跳过导致库存永不归还
 
 ## 四、项目结构
 
@@ -122,8 +127,8 @@
 backend/
 ├── src/main/java/com/sportsequipment/
 │   ├── controller/     # REST API 控制层
-│   ├── service/        # 业务逻辑接口层
-│   ├── service/impl/   # 业务逻辑实现层
+│   ├── service/        # 业务逻辑接口层（含 OrderTxService、OrderCancelTxService 事务代理接口）
+│   ├── service/impl/   # 业务逻辑实现层（含对应事务实现：库存扣减/归还的纯 DB 写）
 │   ├── mapper/         # MyBatis Mapper 接口层
 │   ├── entity/         # 数据库实体
 │   ├── dto/            # 数据传输对象
@@ -327,8 +332,8 @@ frontend/
 | 商品更新/删除 | `lock:product:{id}` | 防止同商品并发修改 |
 | 分类更新/删除 | `lock:category:main:{id}`、`lock:category:sub:{id}`、`lock:category:third:{id}` | 防止同分类并发修改；删除一级/二级时联动清理其下子分类 |
 | 购物车操作 | `cart:lock:{userId}:product:{productId}` | 细粒度锁，提高并发 |
-| 订单扣库存 | `lock:product:{productId}` | leaseTime=30 秒（非 watchdog 自动续期），配合双重库存检查防超卖 |
-| 订单取消归还库存 | `lock:product:{productId}` | MQ 超时取消 / 手动取消 / 删除订单 共用，防止并发取消下库存超加 |
+| 订单扣库存 | `lock:product:{productId}` | leaseTime=30 秒（非 watchdog 自动续期），按 productId 升序拿锁防死锁；**正确性不依赖锁**：`deductStock` 条件 UPDATE（`AND stock >= ?`）+ 影响行数=0 回滚是最终兜底 |
+| 订单取消归还库存 | `lock:product:{productId}` | MQ 超时取消 / 手动取消 / 删除订单 共用，锁在外层 `OrderCancelService`、事务在内层 `OrderCancelTxService`；归还走 `addStock` 原子自增，防止并发取消下丢失更新/超加 |
 | 缓存重建（热点商品/分类） | `lock:{cacheKey}`（如 `lock:product:hot:10`） | 单实例重建缓存，防止缓存击穿 |
 
 ### 缓存一致性策略
@@ -443,12 +448,25 @@ npm run dev
 3. 接口返回统一格式，使用 `ApiResponse<T>` 包装。
 4. 事务管理合理，写操作使用 `@Transactional`。
 5. 依赖注入推荐使用构造函数注入，避免字段 `@Autowired`。
-6. 关键业务逻辑（库存扣减、缓存更新）使用分布式锁保证并发安全。
+6. 关键业务逻辑（库存扣减、缓存更新）使用分布式锁保证并发安全；**库存等强一致性场景必须在 DB 层再做原子条件更新兜底**（`stock = stock - ? ... WHERE stock >= ?` + 影响行数判断），不得把正确性完全押在 Redis 锁的存活时间上。
 
 ---
 
-*文档版本：v1.4*
-*最后更新：2026-08-13*
+*文档版本：v1.5*
+*最后更新：2026-09-18*
+
+### v1.4 → v1.5 变更摘要
+1. **库存防超卖 DB 层兜底（核心）**：
+   - `ProductMapper` 新增 `deductStock(id, quantity)` / `addStock(id, quantity)`，全部 `#{}` 参数化、返回影响行数
+   - 扣减 SQL：`UPDATE product SET stock = stock - #{quantity}, updated_at = NOW() WHERE id = #{id} AND stock >= #{quantity}`；归还 SQL：`stock = stock + #{quantity}` 原子自增
+   - `OrderTxServiceImpl` 扣库存由「SELECT→Java 算差值→整行 update（WHERE 仅 id）」改为条件原子 UPDATE，`affectedRows=0` 抛 `IllegalArgumentException` 回滚整个下单事务；删除原"原子 SQL 双重保险"的误导注释（旧写法行锁只保证 UPDATE 串行，绝对值写回仍会丢失更新）
+   - `OrderCancelTxServiceImpl` 归还库存改为 `addStock` 原子自增，移除不再需要的 SELECT 与 Product 依赖，增加 qty<=0 防御
+   - 防护体系明确为三层：无锁预检（快速失败）→ Redis 锁 + 锁内二次检查（并发协调/性能）→ DB 条件 UPDATE（正确性最终保证）；锁 30s leaseTime 过期或 Redis 宕机均不会超卖，因此不启用 Redisson watchdog 续期
+2. **订单取消链路重构为「锁在事务外」两层结构**：
+   - 新增 `OrderCancelTxService` / `OrderCancelTxServiceImpl`（`@Transactional`），只做库存归还 + 订单置 CANCELLED 的纯 DB 写
+   - `OrderCancelService.cancelOrderAndRestoreStock` 去掉方法级 `@Transactional`：外层负责幂等/权限/状态前置判断 → productId 去重升序拿全部商品锁（防死锁）→ 通过 Spring 代理调内层事务方法 → 事务提交后再清缓存 + 幂等 SET → finally 倒序释放锁，保证「事务先提交 → 锁后释放」
+   - 修复隐患：旧实现幂等 SET 在事务内，事务一旦回滚但幂等已写入，MQ 重投会被跳过导致库存永不归还；现幂等 SET 移到事务提交后
+   - 方法签名保持不变，`OrderServiceImpl` 4 处调用与 `OrderTimeoutCancelConsumer` 1 处调用零改动；`mvn clean compile` 112 源文件 BUILD SUCCESS
 
 ### v1.3 → v1.4 变更摘要
 1. **RabbitMQ 可观测性增强 + 业务发送条件显式化**：

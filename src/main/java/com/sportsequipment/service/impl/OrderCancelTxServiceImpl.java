@@ -2,7 +2,6 @@ package com.sportsequipment.service.impl;
 
 import com.sportsequipment.entity.Order;
 import com.sportsequipment.entity.OrderItem;
-import com.sportsequipment.entity.Product;
 import com.sportsequipment.mapper.OrderMapper;
 import com.sportsequipment.mapper.ProductMapper;
 import com.sportsequipment.service.OrderCancelTxService;
@@ -16,7 +15,7 @@ import java.util.List;
 
 /**
  * 订单取消事务服务实现：只做事务内的纯 DB 写操作，不碰分布式锁、不碰 Redis 缓存。
- * —— 调用方有义务保证进入本方法前，所有涉及商品的分布式锁都已拿齐。
+ * 库存归还走 DB 原子自增（stock = stock + ?），即使外层锁提前过期也不会丢失更新。
  */
 @Service
 public class OrderCancelTxServiceImpl implements OrderCancelTxService {
@@ -37,15 +36,17 @@ public class OrderCancelTxServiceImpl implements OrderCancelTxService {
         // 1) 归还每个订单项的库存（DB 写，在事务内）
         for (OrderItem item : items) {
             Long productId = item.getProductId();
-            Product product = productMapper.findById(productId);
-            if (product == null) {
-                log.warn("[cancelTx] 订单项 productId={} 已不存在，跳过库存归还", productId);
+            int qty = item.getQuantity() == null ? 0 : item.getQuantity();
+            if (qty <= 0) {
+                log.warn("[cancelTx] 订单项 orderItemId={} 数量异常 qty={}，跳过库存归还", item.getId(), qty);
                 continue;
             }
-            int qty = item.getQuantity() == null ? 0 : item.getQuantity();
-            product.setStock(product.getStock() + qty);
-            product.setUpdatedAt(LocalDateTime.now());
-            productMapper.update(product);
+            // 原子自增：UPDATE product SET stock = stock + ? WHERE id = ?
+            // 避免读-改-写在并发取消/归还下的丢失更新；affected=0 说明商品已被删除
+            int affected = productMapper.addStock(productId, qty);
+            if (affected == 0) {
+                log.warn("[cancelTx] 订单项 productId={} 已不存在，跳过库存归还", productId);
+            }
         }
 
         // 2) 订单状态 → CANCELLED

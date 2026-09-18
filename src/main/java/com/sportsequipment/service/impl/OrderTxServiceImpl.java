@@ -88,10 +88,15 @@ public class OrderTxServiceImpl implements OrderTxService {
                 throw new IllegalArgumentException("库存不足：" + product.getName() + "（剩余：" + product.getStock() + "）");
             }
 
-            // 2.2 扣库存（原子 SQL 配合锁外 MySQL 行锁，双重保险）
-            product.setStock(product.getStock() - itemDTO.getQuantity());
-            product.setUpdatedAt(java.time.LocalDateTime.now());
-            productMapper.update(product);
+            // 2.2 扣库存：DB 原子条件 UPDATE 是防超卖的最终兜底
+            // SQL: UPDATE product SET stock = stock - ? WHERE id = ? AND stock >= ?
+            // 即使 Redis 锁因 30s leaseTime 提前过期、并发请求同时进入，
+            // MySQL 当前读 + 行锁会让库存不足的 UPDATE 影响行数=0，物理上不可能超卖
+            int affected = productMapper.deductStock(productId, itemDTO.getQuantity());
+            if (affected == 0) {
+                throw new IllegalArgumentException("库存不足：" + product.getName()
+                        + "（剩余：" + product.getStock() + "，需求：" + itemDTO.getQuantity() + "）");
+            }
 
             // 2.3 同步删商品详情缓存，保证一致性（锁内+事务内执行，不会出现"缓存删了、db 还没写"的空窗）
             redisUtil.delete("product:detail::" + productId);

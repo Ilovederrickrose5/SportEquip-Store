@@ -79,6 +79,23 @@
         DELETE FROM product WHERE id = #{id}
     </delete>
 
+    <!-- 5.1 原子条件扣减库存：库存不足时影响行数为 0，由调用方判断并回滚事务（防超卖 DB 兜底） -->
+    <update id="deductStock">
+        UPDATE product
+        SET stock = stock - #{quantity},
+            updated_at = NOW()
+        WHERE id = #{id}
+          AND stock >= #{quantity}
+    </update>
+
+    <!-- 5.2 原子归还库存：取消订单时 stock 原子自增，避免读-改-写丢失更新 -->
+    <update id="addStock">
+        UPDATE product
+        SET stock = stock + #{quantity},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
     <!-- 6. 根据三级分类ID查询商品（过渡期保留旧字段） -->
     <select id="findByThirdCategoryId" resultType="Product">
         SELECT id, name, category_id, third_category_id, description, price, stock,
