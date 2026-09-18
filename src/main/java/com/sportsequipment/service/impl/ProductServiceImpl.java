@@ -8,6 +8,8 @@ import com.sportsequipment.mapper.CategoryMapper;
 import com.sportsequipment.mapper.ProductMapper;
 import com.sportsequipment.service.ProductService;
 import com.sportsequipment.util.RedisUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
@@ -21,6 +23,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class ProductServiceImpl implements ProductService {
+
+    private static final Logger log = LoggerFactory.getLogger(ProductServiceImpl.class);
 
     private final ProductMapper productMapper;
     private final CategoryMapper categoryMapper;
@@ -239,7 +243,11 @@ public class ProductServiceImpl implements ProductService {
                 products = productMapper.search(keyword.trim());
             }
         } catch (Exception e) {
-            // 全文索引异常时（如索引未创建），使用 LIKE 作为兜底方案
+            // 全文索引异常（常见原因：product 表未建 (name, description) 的 ngram FULLTEXT 索引）
+            // 不再静默吞掉：打 WARN 让线上能感知索引缺失/失效，随后用 LIKE 兜底保证功能可用
+            log.warn("[searchProducts] 全文索引查询失败，回退 LIKE 模糊查询。keyword='{}'，"
+                    + "请检查 product 表是否存在 FULLTEXT KEY ft_product_name_desc (name, description) WITH PARSER ngram。"
+                    + "异常：{}", keyword, e.getMessage());
             products = productMapper.search(keyword.trim());
         }
 

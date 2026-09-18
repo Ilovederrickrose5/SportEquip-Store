@@ -117,8 +117,10 @@ public interface ProductMapper {
     List<Product> search(String keyword);
 
     /**
-     * 使用 MySQL 全文索引搜索商品名称（性能更优）
-     * 
+     * 使用 MySQL 全文索引搜索商品名称/描述（性能更优）
+     * 依赖 product 表上的复合 FULLTEXT 索引：ft_product_name_desc (name, description) WITH PARSER ngram。
+     * 注意：方法名沿用历史命名，实际匹配列为 name + description，与 {@link #search(String)} 的 LIKE 兜底范围一致。
+     *
      * @param keyword 搜索关键词
      * @return 匹配的商品列表
      */

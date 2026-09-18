@@ -126,12 +126,14 @@
            OR description LIKE CONCAT('%', #{keyword}, '%')
     </select>
 
-    <!-- 8.1 使用 MySQL 全文索引搜索商品名称（性能优化版） -->
+    <!-- 8.1 使用 MySQL 全文索引搜索商品名称/描述（性能优化版）
+         要求表上存在复合 FULLTEXT 索引：FULLTEXT KEY ft_product_name_desc (name, description) WITH PARSER ngram
+         搜索列与下方 LIKE 兜底（search）保持一致，避免两条路径结果集范围不同 -->
     <select id="searchByNameFullText" resultType="Product">
         SELECT id, name, category_id, third_category_id, description, price, stock,
                image_url, created_at, updated_at
-        FROM product 
-        WHERE MATCH(name) AGAINST(#{keyword} IN NATURAL LANGUAGE MODE)
+        FROM product
+        WHERE MATCH(name, description) AGAINST(#{keyword} IN NATURAL LANGUAGE MODE)
     </select>
 
     <!-- 8.2 根据三级分类ID和价格范围筛选商品（过渡期保留） -->
