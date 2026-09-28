@@ -1,7 +1,7 @@
 <template>
   <div class="product-card">
     <div class="product-image">
-      <img :src="product.imageUrl || '/default-product.png'" :alt="product.name">
+      <img :src="product.imageUrl || '/default-product.png'" :alt="product.name" loading="lazy">
     </div>
     <div class="product-info">
       <h4 class="product-name">{{ product.name }}</h4>

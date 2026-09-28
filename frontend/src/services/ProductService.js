@@ -1,11 +1,11 @@
-import { API_ENDPOINTS } from '../config/api'
+import { API_ENDPOINTS, getApiBaseUrl } from '../config/api'
 import axios from 'axios'
 
 class ProductService {
   constructor() {
     // 直接创建axios实例以避免循环引用
     this.api = axios.create({
-      baseURL: process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:8080/api',
+      baseURL: getApiBaseUrl(),
       timeout: 30000,
       headers: {
         'Content-Type': 'application/json',

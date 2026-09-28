@@ -2,7 +2,7 @@
   <div class="cart-item">
     <!-- 商品图片 -->
     <div class="cart-item-image">
-      <img :src="item.imageUrl || '/src/assets/default-product.png'" :alt="item.productName" />
+      <img :src="item.imageUrl || defaultProductImg" :alt="item.productName" loading="lazy" />
     </div>
     
     <!-- 商品信息 -->
@@ -40,6 +40,9 @@
 
 <script>
 import { Minus, Plus } from '@element-plus/icons-vue';
+
+// Vite 生产打包要求用 new URL 引用 assets 目录下的图片，否则不会被打包
+const defaultProductImg = new URL('../../assets/images/lunbotu/banner2.webp', import.meta.url).href;
 
 export default {
   name: 'CartItem',

@@ -1,43 +1,10 @@
-import axios from 'axios';
+import axiosInstance from '../utils/axiosInstance';
 
 class OrderService {
   constructor() {
-    // 创建axios实例
-    this.axiosInstance = axios.create({
-      baseURL: '/api/orders',
-      timeout: 10000,
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-
-    // 请求拦截器 - 添加认证token
-    this.axiosInstance.interceptors.request.use(
-      config => {
-        const token = localStorage.getItem('token');
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-      },
-      error => {
-        return Promise.reject(error);
-      }
-    );
-
-    // 响应拦截器 - 统一错误处理
-    this.axiosInstance.interceptors.response.use(
-      response => response,
-      error => {
-        if (error.response && error.response.status === 401) {
-          // 未授权，清除token并跳转到登录页
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          window.location.href = '/login';
-        }
-        return Promise.reject(error);
-      }
-    );
+    // 使用全局共享 axios 实例（含双 Token 无感刷新拦截器），
+    // 不再自建 axios 实例：自建实例的 401 处理会绕过 Token 刷新逻辑直接跳登录页
+    this.axiosInstance = axiosInstance;
   }
 
   /**
@@ -50,7 +17,8 @@ class OrderService {
       console.log('OrderService.createOrder 接收到的数据:', JSON.stringify(orderData, null, 2));
       
       // 添加详细的请求配置，以便更好地调试
-      const response = await this.axiosInstance.post('', orderData, {
+      // 共享实例 baseURL=/api，此处补全 /orders 前缀 → POST /api/orders
+      const response = await this.axiosInstance.post('/orders', orderData, {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
@@ -92,7 +60,7 @@ class OrderService {
     try {
       // 对应后端 OrderController 中的 GET /api/orders/list 接口：返回 List<OrderDTO> 纯数组
       // 注意：GET /api/orders（不带/list）返回的是 PageResponse 分页对象，不能直接赋给 this.orders 后调用 .sort
-      const response = await this.axiosInstance.get('/list');
+      const response = await this.axiosInstance.get('/orders/list');
       return response.data;
     } catch (error) {
       console.error('获取用户订单失败:', error);
@@ -115,7 +83,7 @@ class OrderService {
    */
   async getOrderDetails(orderId) {
     try {
-      const response = await this.axiosInstance.get(`/${orderId}`);
+      const response = await this.axiosInstance.get(`/orders/${orderId}`);
       return response.data;
     } catch (error) {
       console.error('获取订单详情失败:', error);
@@ -137,7 +105,8 @@ class OrderService {
    */
   async getAllOrders() {
     try {
-      const response = await this.axiosInstance.get('/all');
+      // 管理员不分页接口返回纯数组，分页接口 /all 返回 PageResponse 对象
+      const response = await this.axiosInstance.get('/orders/all/list');
       return response.data;
     } catch (error) {
       console.error('获取所有订单失败:', error);
@@ -162,7 +131,7 @@ class OrderService {
   async updateOrderStatus(orderId, status) {
     try {
       // 将status作为查询参数传递，而不是请求体
-      const response = await this.axiosInstance.put(`/${orderId}/status`, null, { params: { status } });
+      const response = await this.axiosInstance.put(`/orders/${orderId}/status`, null, { params: { status } });
       return response.data;
     } catch (error) {
       console.error('更新订单状态失败:', error);

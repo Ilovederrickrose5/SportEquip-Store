@@ -58,32 +58,38 @@ export default {
   props: {
     carouselItems: {
       type: Array,
-      default: () => [
-        {
-          id: 1,
-          image: '/src/assets/images/lunbotu/banner1.avif',
-          title: 'LEBRON XXIII',
-          subtitle: 'CHOSEN ONE',
-          buttonText: '生来配王者',
-          link: '#'
-        },
-        {
-          id: 2,
-          image: '/src/assets/images/lunbotu/banner2.webp',
-          title: '专业跑步装备上新',
-          subtitle: '轻盈舒适，助力突破个人记录',
-          buttonText: '查看详情',
-          link: '#'
-        },
-        {
-          id: 3,
-          image: '/src/assets/images/lunbotu/banner3.avif',
-          title: '健身达人必备装备',
-          subtitle: '提升训练效果，打造完美身材',
-          buttonText: '立即选购',
-          link: '#'
-        }
-      ]
+      default: () => {
+        // Vite 生产打包要求用 new URL 引用 assets 目录下的图片，否则不会被打包
+        const banner1 = new URL('../../assets/images/lunbotu/banner1.avif', import.meta.url).href;
+        const banner2 = new URL('../../assets/images/lunbotu/banner2.webp', import.meta.url).href;
+        const banner3 = new URL('../../assets/images/lunbotu/banner3.avif', import.meta.url).href;
+        return [
+          {
+            id: 1,
+            image: banner1,
+            title: 'LEBRON XXIII',
+            subtitle: 'CHOSEN ONE',
+            buttonText: '生来配王者',
+            link: '#'
+          },
+          {
+            id: 2,
+            image: banner2,
+            title: '专业跑步装备上新',
+            subtitle: '轻盈舒适，助力突破个人记录',
+            buttonText: '查看详情',
+            link: '#'
+          },
+          {
+            id: 3,
+            image: banner3,
+            title: '健身达人必备装备',
+            subtitle: '提升训练效果，打造完美身材',
+            buttonText: '立即选购',
+            link: '#'
+          }
+        ];
+      }
     },
     speed: {
       type: Number,

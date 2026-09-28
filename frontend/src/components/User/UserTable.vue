@@ -37,6 +37,7 @@
         <template #default="{ row }">
           <div class="action-buttons-vertical">
             <el-button
+              v-permission="'ADMIN'"
               type="primary"
               size="small"
               @click="handleEdit(row)"
@@ -44,6 +45,7 @@
               编辑
             </el-button>
             <el-button
+              v-permission="'ADMIN'"
               type="danger"
               size="small"
               @click="handleDelete(row)"

@@ -8,10 +8,11 @@
     >
       <el-table-column prop="imageUrl" label="商品图片" width="100" header-align="center">
         <template #default="scope">
-          <img 
-            :src="scope.row.imageUrl || '/src/assets/default-product.png'" 
-            :alt="scope.row.name" 
-            class="product-image" 
+          <img
+            :src="scope.row.imageUrl || defaultProductImg"
+            :alt="scope.row.name"
+            class="product-image"
+            loading="lazy"
           />
         </template>
       </el-table-column>
@@ -35,17 +36,19 @@
       <el-table-column label="操作" width="80" fixed="right" align="right" header-align="center">
         <template #default="scope">
           <div class="action-buttons-vertical">
-            <el-button 
-              type="primary" 
-              size="small" 
+            <el-button
+              v-permission="'ADMIN'"
+              type="primary"
+              size="small"
               @click="handleEdit(scope.row)"
               :disabled="loading"
             >
               编辑
             </el-button>
-            <el-button 
-              type="danger" 
-              size="small" 
+            <el-button
+              v-permission="'ADMIN'"
+              type="danger"
+              size="small"
               @click="handleDelete(scope.row)"
               :disabled="loading"
             >
@@ -59,6 +62,9 @@
 </template>
 
 <script>
+// Vite 生产打包要求用 new URL 引用 assets 目录下的图片，否则不会被打包
+const defaultProductImg = new URL('../../assets/images/lunbotu/banner2.webp', import.meta.url).href;
+
 export default {
   name: 'ProductTable',
   props: {

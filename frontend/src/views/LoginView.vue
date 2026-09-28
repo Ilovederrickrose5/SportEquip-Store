@@ -106,6 +106,10 @@ export default {
         const token = response.data.accessToken || response.data.token
         
         localStorage.setItem('token', token)
+        // 双 Token：refreshToken 用于 access 过期后无感刷新（axiosInstance 拦截器消费）
+        if (response.data.refreshToken) {
+          localStorage.setItem('refreshToken', response.data.refreshToken)
+        }
         localStorage.setItem('user', JSON.stringify(userData))
         localStorage.setItem('loginTimestamp', Date.now().toString())
         

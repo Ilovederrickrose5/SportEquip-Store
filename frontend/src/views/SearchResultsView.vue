@@ -29,12 +29,13 @@
           </p>
         </div>
         
-        <!-- 搜索框（方便用户再次搜索） -->
+        <!-- 搜索框（方便用户再次搜索，输入停顿 300ms 后自动搜索） -->
         <div class="search-box-container">
-          <input 
-            type="text" 
+          <input
+            type="text"
             v-model="localSearchQuery"
             class="search-input"
+            @input="onSearchInput"
             @keyup.enter="handleSearch"
           >
           <button class="search-btn" @click="handleSearch">
@@ -93,6 +94,7 @@ import SearchSection from '../components/Search/SearchSection.vue';
 import ProductGrid from '../components/ProductDisplay/ProductGrid.vue';
 import MainFooter from '../components/Layout/MainFooter.vue';
 import ProductService from '../services/ProductService';
+import { debounce } from '../utils/debounce';
 
 export default {
   name: 'SearchResultsView',
@@ -101,6 +103,17 @@ export default {
     SearchSection,
     ProductGrid,
     MainFooter
+  },
+  created() {
+    // 输入防抖搜索：停顿 300ms 后自动调用后端搜索接口，避免每次按键都发请求
+    this.debouncedLiveSearch = debounce((keyword) => {
+      if (keyword && keyword.trim()) {
+        this.performSearch(keyword.trim());
+      }
+    }, 300);
+  },
+  beforeUnmount() {
+    this.debouncedLiveSearch.cancel();
   },
   data() {
     return {
@@ -159,12 +172,18 @@ export default {
     
     // 处理搜索按钮点击
     handleSearch() {
+      this.debouncedLiveSearch.cancel();
       if (this.localSearchQuery.trim()) {
         this.$router.push({
           path: '/search',
           query: { keyword: this.localSearchQuery.trim() }
         });
       }
+    },
+
+    // 输入防抖：停顿 300ms 后直接调用搜索（不写 URL，避免污染浏览器历史记录）
+    onSearchInput() {
+      this.debouncedLiveSearch(this.localSearchQuery);
     },
     
     // 跳转到分类页面

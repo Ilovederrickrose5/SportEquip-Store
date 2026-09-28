@@ -171,6 +171,7 @@ export default {
           console.error('认证已过期，请重新登录')
           // 清除登录状态
           localStorage.removeItem('token')
+          localStorage.removeItem('refreshToken')
           localStorage.removeItem('user')
           setTimeout(() => {
             this.$router.push({ name: 'login' })

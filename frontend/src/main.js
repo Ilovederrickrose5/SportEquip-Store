@@ -7,6 +7,7 @@ import './style.css'
 import App from './App.vue'
 import router from './router'
 import { authPlugin } from './plugins/auth'
+import permission from './directives/permission'
 // 导入Element Plus
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
@@ -23,6 +24,9 @@ app.use(store)
 app.use(authPlugin)
 // 使用Element Plus
 app.use(ElementPlus)
+
+// 注册按钮级权限指令：v-permission="'ADMIN'" / v-permission="['ADMIN','MANAGER']"
+app.directive('permission', permission)
 
 // 挂载应用
 app.mount('#app')

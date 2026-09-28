@@ -50,6 +50,11 @@ import ProductGrid from '../components/ProductDisplay/ProductGrid.vue';
 import ProductService from '../services/ProductService';
 import CartService from '../services/CartService';
 
+// Vite 生产打包要求用 new URL 引用 assets 目录下的图片，否则不会被打包
+const banner1 = new URL('../assets/images/lunbotu/banner1.avif', import.meta.url).href;
+const banner2 = new URL('../assets/images/lunbotu/banner2.webp', import.meta.url).href;
+const banner3 = new URL('../assets/images/lunbotu/banner3.avif', import.meta.url).href;
+
 export default {
   name: 'HomeView',
   components: {
@@ -68,7 +73,7 @@ export default {
       carouselItems: [
         {
           id: 1,
-          image: '/src/assets/images/lunbotu/banner1.avif',
+          image: banner1,
           title: 'LEBRON XXIII',
           subtitle: 'CHOSEN ONE',
           buttonText: '生来配王者',
@@ -76,7 +81,7 @@ export default {
         },
         {
           id: 2,
-          image: '/src/assets/images/lunbotu/banner2.webp',
+          image: banner2,
           title: '专业跑步装备上新',
           subtitle: '轻盈舒适，助力突破个人记录',
           buttonText: '查看详情',
@@ -84,7 +89,7 @@ export default {
         },
         {
           id: 3,
-          image: '/src/assets/images/lunbotu/banner3.avif',
+          image: banner3,
           title: '健身达人必备装备',
           subtitle: '提升训练效果，打造完美身材',
           buttonText: '立即选购',
@@ -222,6 +227,7 @@ export default {
         try {
           // 清除localStorage中的所有登录相关数据
           localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
           localStorage.removeItem('user');
           localStorage.removeItem('loginTimestamp');
           localStorage.removeItem('userAvatar');

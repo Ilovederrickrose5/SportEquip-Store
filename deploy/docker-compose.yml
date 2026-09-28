@@ -1,0 +1,104 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_DATABASE: sport_equipment
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --innodb-buffer-pool-size=128M
+      - --max-connections=50
+    volumes:
+      # 👇 这里改成了你的实际文件名
+      - ./sport_equipment.sql:/docker-entrypoint-initdb.d/sport_equipment.sql:ro
+      - mysql-data:/var/lib/mysql
+    networks:
+      - mall-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p123456"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: always
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - mall-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: rabbitmq
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+      TZ: Asia/Shanghai
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - mall-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  backend:
+    image: eclipse-temurin:17-jre
+    container_name: backend
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./sport-equipment-backend-0.0.1-SNAPSHOT.jar:/app/app.jar:ro
+      - uploads-data:/app/uploads
+    command: java -Xmx256m -Xms128m -jar /app/app.jar
+    networks:
+      - mall-net
+    # ⚠️ 删除了这里原本的 healthcheck，因为基础镜像没有 curl，会导致无限重启
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./dist:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - uploads-data:/usr/share/nginx/html/upload:ro
+    depends_on:
+      - backend
+    networks:
+      - mall-net
+
+volumes:
+  mysql-data:
+  redis-data:
+  rabbitmq-data:
+  uploads-data:
+
+networks:
+  mall-net:
+    driver: bridge

@@ -1,16 +1,20 @@
 <template>
   <div class="search-section">
-    <input 
-      type="text" 
-      v-model="searchQuery"
+    <input
+      type="text"
+      :value="inputValue"
       :placeholder="placeholder"
       class="search-input"
+      @input="onInput"
+      @keyup.enter="handleSearch"
     >
     <button class="search-btn" @click="handleSearch">🔍</button>
   </div>
 </template>
 
 <script>
+import { debounce } from '../../utils/debounce'
+
 export default {
   name: 'SearchBar',
   props: {
@@ -23,19 +27,42 @@ export default {
       default: ''
     }
   },
-  computed: {
-    searchQuery: {
-      get() {
-        return this.modelValue;
-      },
-      set(value) {
-        this.$emit('update:modelValue', value);
+  data() {
+    return {
+      // 本地输入值：与父组件 modelValue 解耦，输入过程只在本地流转
+      inputValue: this.modelValue
+    }
+  },
+  created() {
+    // 输入防抖：静默 300ms 后才更新父组件的 modelValue，
+    // 避免分类页的 computed 过滤链（分类+品牌+价格+关键词四重联动）在每次按键时都全量重算
+    this.debouncedInput = debounce((value) => {
+      this.$emit('update:modelValue', value)
+      this.$emit('search', value)
+    }, 300)
+  },
+  beforeUnmount() {
+    // 组件销毁时取消尚未执行的防抖回调，避免操作已卸载实例
+    this.debouncedInput.cancel()
+  },
+  watch: {
+    // 外部重置（如"清空筛选"按钮）时，同步回显到输入框
+    modelValue(newVal) {
+      if (newVal !== this.inputValue) {
+        this.inputValue = newVal
       }
     }
   },
   methods: {
+    onInput(event) {
+      this.inputValue = event.target.value
+      this.debouncedInput(this.inputValue)
+    },
     handleSearch() {
-      this.$emit('search', this.searchQuery);
+      // 按钮点击 / 回车为用户显式动作：立即生效，取消未执行的防抖任务避免重复
+      this.debouncedInput.cancel()
+      this.$emit('update:modelValue', this.inputValue)
+      this.$emit('search', this.inputValue)
     }
   }
 }
